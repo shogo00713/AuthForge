@@ -1,0 +1,9 @@
+services:
+  apache:
+    image: httpd:2.4
+    ports:
+      - "8080:80"
+    volumes:
+      - ./www:/usr/local/apache2/htdocs
+      - ./.htpasswd:/usr/local/apache2/conf/.htpasswd
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf
