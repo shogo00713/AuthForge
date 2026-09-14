@@ -6,3 +6,4 @@ services:
     volumes:
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
       - ./www:/usr/local/apache2/htdocs:ro
+      - ./.htdigest:/usr/local/apache2/.htdigest:ro
