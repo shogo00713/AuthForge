@@ -2,6 +2,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 from pathlib import Path
 import secrets
+import ssl
 
 BASE_DIR = Path(__file__).parent
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -178,9 +179,14 @@ class Handler(BaseHTTPRequestHandler):
                 )
 
 
-server = HTTPServer(
-    ("0.0.0.0", 8080),
-    Handler
+server = HTTPServer(("0.0.0.0", 8443), Handler)
+
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain(
+    certfile="certs/localhost.pem",
+    keyfile="certs/localhost-key.pem"
 )
+
+server.socket = context.wrap_socket(server.socket, server_side=True)
 
 server.serve_forever()

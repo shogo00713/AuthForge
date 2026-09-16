@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY server.py .
 COPY templates ./templates
+COPY certs ./certs
 
 ENV PYTHONUNBUFFERED=1
 
