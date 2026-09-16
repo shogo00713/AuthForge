@@ -1,5 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 import secrets
 import ssl
@@ -37,7 +37,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
 
 
-        elif self.path == "/dashboard":
+        elif self.path.startswith("/dashboard"):
 
             cookie = self.headers.get("Cookie")
 
@@ -56,8 +56,15 @@ class Handler(BaseHTTPRequestHandler):
             user = sessions.get(session_id)
 
             if user:
+
+                # URLパラメータからユーザー名をいじれるようにする
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                name = params.get("name", [user])[0]
+
                 html = load_template("dashboard.html")
-                html = html.replace("{user}", user)
+                html = html.replace("{user}", name)
+
 
                 print(
                     "Authenticated user:", user, flush=True)
@@ -159,7 +166,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header(
                     "Set-Cookie",
-                    f"session_id={session_id}; Secure"
+                    f"session_id={session_id}; Secure; HttpOnly"
                 )
                 self.end_headers()
 
