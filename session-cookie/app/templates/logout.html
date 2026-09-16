@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - AuthForge</title>
+    <title>Logout - AuthForge</title>
 
     <style>
         body {
@@ -18,8 +18,8 @@
 
         .card {
             background: white;
-            width: 400px;
-            padding: 45px;
+            width: 360px;
+            padding: 40px;
             border-radius: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             text-align: center;
@@ -27,37 +27,22 @@
 
         .icon {
             font-size: 48px;
-            margin-bottom: 15px;
         }
 
         h1 {
-            margin: 0;
+            margin-top: 15px;
         }
 
-        .user {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-
-        .status {
+        a {
             display: inline-block;
-            padding: 6px 14px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            font-size: 14px;
-        }
-
-        .logout {
-            display: inline-block;
-            margin-top: 30px;
-            padding: 11px 25px;
+            margin-top: 20px;
+            padding: 10px 20px;
             background: #333;
             color: white;
             text-decoration: none;
         }
 
-        .logout:hover {
+        a:hover {
             background: #555;
         }
     </style>
@@ -67,22 +52,12 @@
 
     <div class="card">
 
-        <h1>Dashboard</h1>
+        <h1>Logged out</h1>
 
-        <p>Welcome,</p>
+        <p>You have been successfully logged out.</p>
 
-        <div class="user">
-            {user}!
-        </div>
-
-        <div class="status">
-            ✓ Authenticated
-        </div>
-
-        <br>
-
-        <a class="logout" href="/logout">
-            Logout
+        <a href="/login">
+            Back to Login
         </a>
 
     </div>
