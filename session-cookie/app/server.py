@@ -1,6 +1,17 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs
+from pathlib import Path
 import secrets
+
+BASE_DIR = Path(__file__).parent
+TEMPLATE_DIR = BASE_DIR / "templates"
+
+# テンプレートを読み込む関数
+def load_template(filename):
+    path = TEMPLATE_DIR / filename
+
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 # 登録されているユーザー名とパスワードの辞書(デモ)
 USERS = {
@@ -16,33 +27,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path == "/login":
 
-            html = """
-            <!DOCTYPE html>
-            <html>
-            <body>
-                <h1>Login</h1>
-
-                <form method="POST" action="/login">
-                    <label>
-                        Username:
-                        <input type="text" name="username">
-                    </label>
-
-                    <br>
-
-                    <label>
-                        Password:
-                        <input type="password" name="password">
-                    </label>
-
-                    <br>
-
-                    <button type="submit">Login</button>
-                </form>
-
-            </body>
-            </html>
-            """
+            html = load_template("login.html")
 
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
@@ -50,8 +35,92 @@ class Handler(BaseHTTPRequestHandler):
 
             self.wfile.write(html.encode("utf-8"))
 
+
+        elif self.path == "/dashboard":
+
+            cookie = self.headers.get("Cookie")
+
+            session_id = None
+
+            if cookie:
+                cookies = {}
+
+                # Cookieヘッダーを解析して辞書に変換する
+                for item in cookie.split(";"):
+                    key, value = item.strip().split("=", 1)
+                    cookies[key] = value
+
+                session_id = cookies.get("session_id")
+
+            user = sessions.get(session_id)
+
+            if user:
+                html = load_template("dashboard.html")
+                html = html.replace("{user}", user)
+
+                print(
+                    "Authenticated user:", user, flush=True)
+
+                self.send_response(200)
+                self.end_headers()
+
+                self.wfile.write(
+                    html.encode("utf-8")
+                )
+
+            else:
+
+                # 権限がないエラー
+                self.send_response(401)
+                self.end_headers()
+
+                self.wfile.write(
+                    b"Unauthorized"
+                )
+
+        # ログアウト処理
+        elif self.path == "/logout":
+
+            cookie = self.headers.get("Cookie")
+
+            session_id = None
+
+            if cookie:
+                cookies = {}
+
+                for item in cookie.split(";"):
+                    key, value = item.strip().split("=", 1)
+                    cookies[key] = value
+
+                session_id = cookies.get("session_id")
+
+            # セッションを削除
+            if session_id in sessions:
+                del sessions[session_id]
+
+            print("Session ID:", session_id, flush=True)
+            print("Sessions:", sessions, flush=True)
+
+            html = load_template("logout.html")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+
+            # Cookieを失効させる
+            self.send_header(
+                "Set-Cookie",
+                "session_id=; Max-Age=0"
+            )
+
+            self.end_headers()
+
+            self.wfile.write(
+                html.encode("utf-8")
+            )
+
+
         else:
-            # エラー時
+            # それ以外のエラー
             self.send_response(404)
             self.end_headers()
 
@@ -84,20 +153,28 @@ class Handler(BaseHTTPRequestHandler):
                 print("Session ID:", session_id, flush=True)
                 print("Sessions:", sessions, flush=True)
 
+                html = load_template("success.html")
+
                 self.send_response(200)
+                self.send_header(
+                    "Set-Cookie",
+                    f"session_id={session_id}; Secure"
+                )
                 self.end_headers()
 
                 self.wfile.write(
-                    b"Login successful!"
+                    html.encode("utf-8")
                 )
 
             else:
+
+                html = load_template("failed.html")
 
                 self.send_response(401)
                 self.end_headers()
 
                 self.wfile.write(
-                    b"Login failed!"
+                    html.encode("utf-8")
                 )
 
 
