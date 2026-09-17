@@ -1,5 +1,21 @@
 services:
-  app:
+  app1:
     build: ./app
     ports:
       - "8443:8443"
+    environment:
+      - PORT=8443
+    depends_on:
+      - redis
+
+  app2:
+    build: ./app
+    ports:
+      - "8444:8443"
+    environment:
+      - PORT=8443
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
