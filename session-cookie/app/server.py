@@ -15,8 +15,11 @@ def load_template(filename):
         return f.read()
 
 # 登録されているユーザー名とパスワードの辞書(デモ)
-USERS = {
-    "Bob": "Happy0123"
+user_data = {
+    "Bob": {
+        "name": "Bob",
+        "password": "Happy0123"
+    }
 }
 
 # セッション情報を保持する辞書
@@ -57,10 +60,7 @@ class Handler(BaseHTTPRequestHandler):
 
             if user:
 
-                # URLパラメータからユーザー名をいじれるようにする
-                parsed = urlparse(self.path)
-                params = parse_qs(parsed.query)
-                name = params.get("name", [user])[0]
+                name = user_data[user]["name"]
 
                 html = load_template("dashboard.html")
                 html = html.replace("{user}", name)
@@ -151,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             password = data["password"][0]
 
             # 正しいか判定する
-            if USERS.get(username) == password:
+            if user_data.get(username) and user_data[username].get("password") == password:
 
                 # セッションIDを生成する
                 session_id = secrets.token_hex(32)
@@ -166,7 +166,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header(
                     "Set-Cookie",
-                    f"session_id={session_id}; Secure; HttpOnly"
+                    f"session_id={session_id}; Secure; HttpOnly; SameSite=Lax"
                 )
                 self.end_headers()
 
@@ -174,16 +174,50 @@ class Handler(BaseHTTPRequestHandler):
                     html.encode("utf-8")
                 )
 
-            else:
+        elif self.path == "/change-name":
 
-                html = load_template("failed.html")
+            cookie = self.headers.get("Cookie")
+            session_id = None
 
-                self.send_response(401)
-                self.end_headers()
+            if cookie:
+                cookies = {}
 
-                self.wfile.write(
-                    html.encode("utf-8")
+                for item in cookie.split(";"):
+                    key, value = item.strip().split("=", 1)
+                    cookies[key] = value
+
+                session_id = cookies.get("session_id")
+
+            user = sessions.get(session_id)
+
+            if user:
+                content_length = int(self.headers["Content-Length"])
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = parse_qs(body)
+
+                name = data["name"][0]
+
+                user_data[user]["name"] = name
+
+                print(
+                    f"Name changed: {user} -> {name}",
+                    flush=True
                 )
+
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Name changed")
+
+        else:
+
+            html = load_template("failed.html")
+
+            self.send_response(401)
+            self.end_headers()
+
+            self.wfile.write(
+                html.encode("utf-8")
+            )
 
 
 server = HTTPServer(("0.0.0.0", 8443), Handler)

