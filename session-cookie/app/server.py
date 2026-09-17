@@ -1,8 +1,10 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlparse
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from urllib.parse import parse_qs
 from pathlib import Path
 import secrets
 import ssl
+import redis
+import os
 
 BASE_DIR = Path(__file__).parent
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -22,8 +24,12 @@ user_data = {
     }
 }
 
-# セッション情報を保持する辞書
-sessions = {}
+# セッション情報を保持するRedisクライアントを作成 (辞書から移行)
+redis_client = redis.Redis(
+    host="redis",
+    port=6379,
+    decode_responses=True
+)
 
 class Handler(BaseHTTPRequestHandler):
 
@@ -56,7 +62,9 @@ class Handler(BaseHTTPRequestHandler):
 
                 session_id = cookies.get("session_id")
 
-            user = sessions.get(session_id)
+            user = redis_client.get(
+                f"session:{session_id}"
+            )
 
             if user:
 
@@ -103,11 +111,11 @@ class Handler(BaseHTTPRequestHandler):
                 session_id = cookies.get("session_id")
 
             # セッションを削除
-            if session_id in sessions:
-                del sessions[session_id]
+            if session_id:
+                redis_client.delete(f"session:{session_id}")
 
             print("Session ID:", session_id, flush=True)
-            print("Sessions:", sessions, flush=True)
+            print("Sessions:", redis_client.keys("session:*"), flush=True)
 
             html = load_template("logout.html")
 
@@ -155,11 +163,11 @@ class Handler(BaseHTTPRequestHandler):
 
                 # セッションIDを生成する
                 session_id = secrets.token_hex(32)
-                sessions[session_id] = username
+                redis_client.set(f"session:{session_id}", username)
 
 
                 print("Session ID:", session_id, flush=True)
-                print("Sessions:", sessions, flush=True)
+                print("Sessions:", redis_client.keys("session:*"), flush=True)
 
                 html = load_template("success.html")
 
@@ -188,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
 
                 session_id = cookies.get("session_id")
 
-            user = sessions.get(session_id)
+            user = redis_client.get(f"session:{session_id}")
 
             if user:
                 content_length = int(self.headers["Content-Length"])
@@ -220,7 +228,9 @@ class Handler(BaseHTTPRequestHandler):
             )
 
 
-server = HTTPServer(("0.0.0.0", 8443), Handler)
+port = int(os.environ.get("PORT", "8443"))
+
+server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(
