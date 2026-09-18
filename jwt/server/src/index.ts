@@ -11,7 +11,7 @@ app.use(express.static(path.join(process.cwd(), "../public")));
 const PORT = 3000;
 
 // JWTの秘密鍵(学習用なのでハードコードだが、実際は環境変数必須)
-const JWT_SECRET = "my_jwt_secrets_key_Bob_Happy0123";
+const JWT_SECRET = "secret";
 
 // いつものデモ用ユーザー情報
 const user = {
