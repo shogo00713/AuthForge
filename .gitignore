@@ -1,2 +1,21 @@
+# Password files
 .htpasswd
 *.pem
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment variables
+.env
+.env.*
+
+# Build output
+dist/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
