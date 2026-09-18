@@ -103,25 +103,63 @@ app.get("/me", (req, res) => {
     }
 });
 
-// 脆弱なエンドポイントの例
+// 脆弱なエンドポイントの例(検証のアルゴリズム指定を使用してしまう)
 app.get("/me-vulnerable", (req, res) => {
     const authHeader = req.headers.authorization;
 
-    // Authorizationヘッダーがない場合は401
     if (!authHeader) {
         return res.status(401).json({
             message: "Authorization header is required",
         });
     }
 
-    // AuthorizationヘッダーからJWTを取得
-    const [, token] = authHeader.split(" ");
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) {
+        return res.status(401).json({
+            message: "Invalid Authorization header",
+        });
+    }
 
     try {
-        // わざと alg: none を許可
-        const payload = jwt.verify(token, "", {
-            algorithms: ["none"],
-        });
+        const [encodedHeader, encodedPayload, encodedSignature] =
+            token.split(".");
+
+        const header = JSON.parse(
+            Buffer.from(encodedHeader, "base64url").toString()
+        );
+
+        const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+        let valid = false;
+
+        // わざと alg の値によって検証方法を切り替える
+        if (header.alg === "none") {
+            // alg が none なら署名検証を行わない
+            valid = true;
+        }
+
+        if (header.alg === "HS256") {
+            const expectedSignature = crypto
+                .createHmac("sha256", JWT_SECRET)
+                .update(signingInput)
+                .digest();
+
+            valid = crypto.timingSafeEqual(
+                expectedSignature,
+                Buffer.from(encodedSignature, "base64url")
+            );
+        }
+
+        if (!valid) {
+            return res.status(401).json({
+                message: "JWTの検証に失敗しました。",
+            });
+        }
+
+        const payload = JSON.parse(
+            Buffer.from(encodedPayload, "base64url").toString()
+        );
 
         return res.json({
             message: "JWTの検証に成功しました。",
@@ -133,7 +171,6 @@ app.get("/me-vulnerable", (req, res) => {
         });
     }
 });
-
 // RS256署名のJWTを発行するエンドポイント
 app.post("/login-rs256", (req, res) => {
     const { username, password } = req.body;
