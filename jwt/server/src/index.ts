@@ -9,7 +9,7 @@ app.use(express.static(path.join(process.cwd(), "../public")));
 const PORT = 3000;
 
 // JWTの秘密鍵(学習用なのでハードコードだが、実際は環境変数必須)
-const JWT_SECRET = "my_jwt_secret_key";
+const JWT_SECRET = "my_jwt_secrets_key_Bob_Happy0123";
 
 // いつものデモ用ユーザー情報
 const user = {
@@ -82,6 +82,37 @@ app.get("/me", (req, res) => {
             user: payload // JWTのペイロードを返す
         });
     } catch (err) {
+        return res.status(401).json({
+            message: "JWTの検証に失敗しました。",
+        });
+    }
+});
+
+// 脆弱なエンドポイントの例
+app.get("/me-vulnerable", (req, res) => {
+    const authHeader = req.headers.authorization;
+
+    // Authorizationヘッダーがない場合は401
+    if (!authHeader) {
+        return res.status(401).json({
+            message: "Authorization header is required",
+        });
+    }
+
+    // AuthorizationヘッダーからJWTを取得
+    const [, token] = authHeader.split(" ");
+
+    try {
+        // わざと alg: none を許可
+        const payload = jwt.verify(token, "", {
+            algorithms: ["none"],
+        });
+
+        return res.json({
+            message: "JWTの検証に成功しました。",
+            user: payload,
+        });
+    } catch {
         return res.status(401).json({
             message: "JWTの検証に失敗しました。",
         });
