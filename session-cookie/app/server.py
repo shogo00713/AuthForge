@@ -9,20 +9,22 @@ import os
 BASE_DIR = Path(__file__).parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 
-# テンプレートを読み込む関数
+# HTMLテンプレートファイルを読み込む関数
 def load_template(filename):
     path = TEMPLATE_DIR / filename
 
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-# 登録されているユーザー名とパスワードの辞書(デモ)
+
+# 登録されているユーザー名とパスワードの辞書(デモ用)
 user_data = {
     "Bob": {
         "name": "Bob",
         "password": "Happy0123"
     }
 }
+
 
 # セッション情報を保持するRedisクライアントを作成 (辞書から移行)
 redis_client = redis.Redis(
@@ -31,10 +33,14 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
+# 元は session = {} のみ
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
 
+        # ====== ログインページを表示 ======
         if self.path == "/login":
 
             html = load_template("login.html")
@@ -46,7 +52,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
 
 
-        elif self.path.startswith("/dashboard"):
+        # ====== ダッシュボードページを表示 =======
+        elif self.path == "/dashboard":
 
             cookie = self.headers.get("Cookie")
 
@@ -94,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
                     b"Unauthorized"
                 )
 
-        # ログアウト処理
+        # ====== ログアウト処理 ======
         elif self.path == "/logout":
 
             cookie = self.headers.get("Cookie")
@@ -134,15 +141,15 @@ class Handler(BaseHTTPRequestHandler):
                 html.encode("utf-8")
             )
 
-
+        # ====== それ以外は404エラー ======
         else:
-            # それ以外のエラー
             self.send_response(404)
             self.end_headers()
 
 
     def do_POST(self):
 
+        # ==== ログインの処理(セッション発行!!!) ======
         if self.path == "/login":
 
             content_length = int(
@@ -158,13 +165,12 @@ class Handler(BaseHTTPRequestHandler):
             username = data["username"][0]
             password = data["password"][0]
 
-            # 正しいか判定する
+            # 登録されているデータと一致するか判定する
             if user_data.get(username) and user_data[username].get("password") == password:
 
                 # セッションIDを生成する
                 session_id = secrets.token_hex(32)
                 redis_client.set(f"session:{session_id}", username)
-
 
                 print("Session ID:", session_id, flush=True)
                 print("Sessions:", redis_client.keys("session:*"), flush=True)
@@ -172,16 +178,23 @@ class Handler(BaseHTTPRequestHandler):
                 html = load_template("success.html")
 
                 self.send_response(200)
+
+                # ==============================
+                # CookieにセッションIDを設定する
+                # ==============================
                 self.send_header(
                     "Set-Cookie",
                     f"session_id={session_id}; Secure; HttpOnly; SameSite=Lax"
                 )
+
+
                 self.end_headers()
 
                 self.wfile.write(
                     html.encode("utf-8")
                 )
 
+        # ==== 名前変更の処理(CSRFデモ用) ======
         elif self.path == "/change-name":
 
             cookie = self.headers.get("Cookie")
@@ -216,8 +229,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"Name changed")
 
+        # ==== それ以外は401認証失敗エラー ======
         else:
-
             html = load_template("failed.html")
 
             self.send_response(401)
@@ -229,15 +242,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 port = int(os.environ.get("PORT", "8443"))
-
 server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(
     certfile="certs/localhost.pem",
     keyfile="certs/localhost-key.pem"
 )
-
 server.socket = context.wrap_socket(server.socket, server_side=True)
-
 server.serve_forever()
