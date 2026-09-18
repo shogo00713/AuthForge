@@ -34,6 +34,7 @@ app.post("/login", (req, res) => {
     const token = jwt.sign(
         {
             sub: username,
+            role: "topadmin",
         },
         JWT_SECRET,
         {
