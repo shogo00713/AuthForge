@@ -1,9 +1,8 @@
+import "dotenv/config";
 import express from "express";
 import authRouter from "./routes/auth";
-import dotenv from "dotenv";
 
 const app = express();
-dotenv.config();
 
 
 // ルートの画面の表示
