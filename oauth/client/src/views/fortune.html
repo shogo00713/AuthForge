@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fortune App</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-family: Georgia, "Times New Roman", serif;
+      background: #fafafa;
+      color: #222;
+    }
+
+    .container {
+      text-align: center;
+      margin-top: -80px;
+    }
+
+    h1 {
+      font-size: 56px;
+      font-weight: normal;
+      margin-bottom: 16px;
+    }
+
+    p {
+      font-size: 17px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .fortune-button {
+      display: inline-block;
+      padding: 12px 28px;
+
+      font-family: inherit;
+      font-size: 16px;
+
+      color: white;
+      background: #222;
+
+      border: none;
+
+      cursor: pointer;
+    }
+
+    .fortune-button:hover {
+      background: #444;
+    }
+
+    .logout-link {
+      display: block;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #999;
+      text-decoration: none;
+    }
+
+    .logout-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <main class="container">
+    <h1>Fortune App</h1>
+
+    <button class="fortune-button" onclick="window.location.href='/fortune'">
+      占う
+    </button>
+
+    <a class="logout-link" href="/logout">ログアウト</a>
+  </main>
+
+</body>
+</html>

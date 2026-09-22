@@ -44,7 +44,7 @@ router.post("/token", (req, res) => {
     }
 
     // JWT形式の Access Token を発行する
-    const accessToken = issueAccessToken({ sub: clientId, scope: data.scope.join(" ") });
+    const accessToken = issueAccessToken({ sub: data.sub, scope: data.scope.join(" ") });
     
     // 認可コードを使ったので削除する
     deleteCodeData(code);

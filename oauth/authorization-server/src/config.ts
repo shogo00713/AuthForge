@@ -26,3 +26,23 @@ export const clients: Record<string, RegisteredClient> = {
         allowed_scopes: process.env.FORTUNE_APP_SCOPES!.split(","),
     },
 };
+
+
+export type User = {
+    id: string;
+    username: string;
+    password: string;
+}
+
+export const users: User[] = [
+    { id: "u01", username: "saeki_haruna", password: "QZpGdjCXN1wG" },
+    { id: "u02", username: "kuroda_ren", password: "ViLaFYVMgyix" },
+    { id: "u03", username: "mikami_yuko", password: "yRK8BMHOyHB" },
+    { id: "u04", username: "shinonome_yuma", password: "aCmiaBeMg03l" },
+    { id: "u05", username: "saotome_chinatsu", password: "KHikDlmcK2X" },
+    { id: "u06", username: "kiryu_yamato", password: "6CDGD4zxYIs" },
+    { id: "u07", username: "shiratori_mizuki", password: "bhCxcstUjrx9" },
+    { id: "u08", username: "kagurazaka_takumi", password: "LjSCXFiYcy6u" },
+    { id: "u09", username: "hoshino_aoi", password: "QHHnANgPgwL" },
+    { id: "u10", username: "rokudou_kei", password: "PP7sVQdQ96vh" },
+]

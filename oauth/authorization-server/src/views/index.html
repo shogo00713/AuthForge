@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeopleBase</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-family: Georgia, "Times New Roman", serif;
+      background: #0d0d10;
+      color: #e8e6e1;
+    }
+
+    .container {
+      text-align: center;
+      width: 320px;
+    }
+
+    h1 {
+      font-size: 40px;
+      font-weight: normal;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      color: #f2efe9;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #8a8783;
+      margin-bottom: 28px;
+    }
+
+    p {
+      font-size: 15px;
+      color: #b3b0aa;
+      margin-bottom: 24px;
+    }
+
+    .login-field {
+      display: block;
+      width: 100%;
+      margin: 0 0 14px;
+      padding: 11px 14px;
+      font-family: inherit;
+      font-size: 15px;
+      box-sizing: border-box;
+
+      background: #1a1a1f;
+      border: 1px solid #33323a;
+      color: #f2efe9;
+    }
+
+    .login-field:focus {
+      outline: none;
+      border-color: #a4895a;
+    }
+
+    .login-field::placeholder {
+      color: #6d6a66;
+    }
+
+    .consent {
+      text-align: left;
+      border-top: 1px solid #2a2930;
+      border-bottom: 1px solid #2a2930;
+      padding: 14px 2px;
+      margin-bottom: 20px;
+    }
+
+    .consent-label {
+      font-size: 12px;
+      color: #6d6a66;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .consent-scopes {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+      color: #d8d5cf;
+      line-height: 1.6;
+    }
+
+    .consent-scopes li::before {
+      content: "・";
+      color: #a4895a;
+    }
+
+    .decision-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .decision-button {
+      flex: 1;
+      padding: 12px 0;
+
+      font-family: inherit;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .decision-button.allow {
+      color: #0d0d10;
+      background: #d8c9a3;
+      border: 1px solid #d8c9a3;
+    }
+
+    .decision-button.allow:hover {
+      background: #c9b98c;
+      border-color: #c9b98c;
+    }
+
+    .decision-button.deny {
+      color: #b3b0aa;
+      background: transparent;
+      border: 1px solid #33323a;
+    }
+
+    .decision-button.deny:hover {
+      color: #e57373;
+      border-color: #e57373;
+    }
+
+    .error-message {
+      color: #e57373;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <main class="container">
+    <h1>PeopleBase</h1>
+    <p class="subtitle">Authorization Server</p>
+
+    <p id="error-message" class="error-message"></p>
+
+    <form id="authorize-form" method="post" action="/authorize">
+      <input class="login-field" type="text" name="username" placeholder="ユーザー名" required>
+      <input class="login-field" type="password" name="password" placeholder="パスワード" required>
+
+      <input type="hidden" name="client_id" value="<%= client_id %>">
+      <input type="hidden" name="redirect_uri" value="<%= redirect_uri %>">
+      <input type="hidden" name="response_type" value="<%= response_type %>">
+      <input type="hidden" name="scope" value="<%= scope %>">
+
+      <div class="consent">
+        <p class="consent-label"><%= client_id %> が要求している権限</p>
+        <ul class="consent-scopes" id="scope-list"></ul>
+      </div>
+
+      <div class="decision-row">
+        <button type="submit" name="decision" value="deny" class="decision-button deny">拒否する</button>
+        <button type="submit" name="decision" value="allow" class="decision-button allow">許可する</button>
+      </div>
+    </form>
+
+  </main>
+
+  <script>
+    // サーバー側にテンプレートエンジンが無いため、エラー表示・scope説明はクエリ/hiddenの値をJSで読んで行う
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error) {
+      const el = document.getElementById("error-message");
+      el.textContent = "エラー: " + error;
+      el.style.display = "block";
+    }
+
+    const SCOPE_DESCRIPTIONS = {
+      "profile:basic": "「名前」「好きな食べ物」の読み取り",
+      "profile:full": "「名前」「好きな食べ物」「誕生日」「血液型」「座右の銘」の読み取り",
+    };
+
+    const scopeValue = document.querySelector('input[name="scope"]').value;
+    const scopeList = document.getElementById("scope-list");
+    scopeValue.split(" ").forEach((s) => {
+      const li = document.createElement("li");
+      li.textContent = SCOPE_DESCRIPTIONS[s] || s;
+      scopeList.appendChild(li);
+    });
+  </script>
+
+</body>
+</html>

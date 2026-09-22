@@ -29,13 +29,17 @@ router.get("/resources", (req, res) => {
 
     try {
         const tokenPayload = verifyAccessToken(token);
+        const sub = tokenPayload.sub;
         const scope = tokenPayload.scope;
 
-        // 現状は全てのプロフィールデータを返す
-        // 後に、ログイン時にアカウント名からプロフィールを特定するように変更する
-        const filteredProfile = profiles.map((profile) => filterProfileByScope(profile, scope));
+        // subと一致するプロフィールを1人だけ探す
+        const myProfile = profiles.find((profile) => profile.id === sub);
+        if (!myProfile) {
+            return res.status(404).send("プロフィールが見つかりません");
+        }
+        const filteredProfile = filterProfileByScope(myProfile, scope);
 
-        res.json({ profiles: filteredProfile })
+        res.json({ profile: filteredProfile })
 
     } catch (error) {
         console.error(error);

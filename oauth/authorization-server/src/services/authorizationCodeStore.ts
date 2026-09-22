@@ -3,18 +3,20 @@ type AuthCodeData = {
     redirect_uri: string;
     scope: string[];
     expires_at: number;
+    sub : string; // 認可コードに紐づくユーザーID
 };
 
 // 認可コードの一時保存は、メモリ上の Map を使用する (本来はDBなどに保存する)
 const codes = new Map<string, AuthCodeData>();
 
 // 認可コードを生成する関数
-export function generateAuthCodeData(client_id: string, redirect_uri: string, scope: string[]): AuthCodeData {
+export function generateAuthCodeData(client_id: string, redirect_uri: string, scope: string[], sub: string): AuthCodeData {
     return {
         client_id,
         redirect_uri,
         scope,
         expires_at: Date.now() + 300000, // 5分後
+        sub,
     };
 }
 

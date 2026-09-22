@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fortune Result</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-family: Georgia, "Times New Roman", serif;
+      background: #fafafa;
+      color: #222;
+    }
+
+    .container {
+      text-align: center;
+      width: 360px;
+    }
+
+    h1 {
+      font-size: 40px;
+      font-weight: normal;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 32px;
+    }
+
+    .profile {
+      text-align: left;
+      border-top: 1px solid #e0e0e0;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 4px;
+      margin-bottom: 24px;
+    }
+
+    .profile-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .profile-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .profile-label {
+      color: #999;
+    }
+
+    .profile-value {
+      color: #222;
+    }
+
+    .fortune-box {
+      padding: 24px 20px;
+      margin-bottom: 28px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .fortune-label {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .fortune-text {
+      font-size: 22px;
+      line-height: 1.6;
+    }
+
+    .locked-box {
+      padding: 20px;
+      margin-bottom: 28px;
+      background: #f2f2f2;
+      color: #777;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .back-link {
+      display: inline-block;
+      font-size: 13px;
+      color: #999;
+      text-decoration: none;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <main class="container">
+    <h1>Fortune Result</h1>
+    <p class="subtitle">今日のあなたの運勢</p>
+
+    <div class="profile">
+      <div class="profile-row">
+        <span class="profile-label">名前</span>
+        <span class="profile-value"><%= name %></span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-label">好きな食べ物</span>
+        <span class="profile-value"><%= favoriteFood %></span>
+      </div>
+    </div>
+
+    <%= fortuneSection %>
+
+    <a class="back-link" href="/">トップに戻る</a>
+  </main>
+
+</body>
+</html>
