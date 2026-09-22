@@ -1,12 +1,26 @@
 import crypto from "crypto";
 
-export default function generateFortune(name: string, birthday: string): string {
+type Fortune = {
+    label: string;
+    message: string;
+};
 
-    const FORTUNES = ["大吉", "中吉", "小吉", "吉", "末吉", "凶", "大凶"];
+const FORTUNES: Fortune[] = [
+    { label: "大吉", message: "何をやってもうまくいく日。思い切って挑戦してみましょう。" },
+    { label: "中吉", message: "良い流れが来ています。焦らず着実に進めましょう。" },
+    { label: "小吉", message: "小さな幸運がありそう。周りへの感謝を忘れずに。" },
+    { label: "吉", message: "穏やかで安定した一日になりそうです。" },
+    { label: "末吉", message: "今はまだ助走の時期。焦らずコツコツいきましょう。" },
+    { label: "凶", message: "少し慎重に。無理せず一歩ずつ進みましょう。" },
+    { label: "大凶", message: "今日は守りの日。大きな決断は先延ばしにしましょう。" },
+];
 
-    // 占い？？？
-    const hash = crypto.createHash("sha256").update(name + birthday).digest("hex");
+
+export default function generateFortune(name: string, birthday: string): Fortune {
+
+    // 占い？？？？
+    const today = new Date().toISOString().slice(0, 10); // "2026-09-22"のような形
+    const hash = crypto.createHash("sha256").update(name + birthday + today).digest("hex");
     const hashNumber = parseInt(hash.slice(0, 8), 16);
-    const index = hashNumber % FORTUNES.length;
-    return FORTUNES[index];
+    return FORTUNES[hashNumber % FORTUNES.length];
 }

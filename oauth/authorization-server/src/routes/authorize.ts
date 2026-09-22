@@ -53,7 +53,16 @@ router.get("/authorize", async (req, res) => {
 
 router.post("/authorize", async(req, res) => {
 
+
+    
     const { username, password, client_id, redirect_uri, response_type, scope } = req.body;
+
+    // 同意が取れなかったら、すぐにクライアントにリダイレクトする
+    if (req.body.decision === "deny") {
+        const retryUrl = new URL(redirect_uri as string);
+        retryUrl.searchParams.append("error", "access_denied");
+        return res.redirect(retryUrl.toString());
+    }
 
     // ユーザー認証を行う (簡易的だが)
     const user = verifyCredentials(username, password);
@@ -68,12 +77,6 @@ router.post("/authorize", async(req, res) => {
         return res.redirect(retryUrl.toString());
     }
 
-    // 同意が取れなかったら、すぐにクライアントにリダイレクトする
-    if (req.body.decision === "deny") {
-        const retryUrl = new URL(redirect_uri as string);
-        retryUrl.searchParams.append("error", "access_denied");
-        return res.redirect(retryUrl.toString());
-    }
 
     try{
 

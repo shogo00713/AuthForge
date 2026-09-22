@@ -54,8 +54,16 @@
     .login-button:hover {
       background: #444;
     }
+
+    .error-message {
+      color: #c0392b;
+      font-size: 30px;
+      margin-bottom: 16px;
+      margin-top: -16px;
+      display: none;
+    }
   </style>
-  
+
 </head>
 
 <body>
@@ -63,14 +71,30 @@
   <main class="container">
     <h1>Fortune App</h1>
 
+    <p id="error-message" class="error-message"></p>
+
     <p>
       あなたのプロフィールから、今日の運勢を占います。
     </p>
 
-    <button class="login-button" onclick="window.location.href='/login'">
-      Login with OAuth
+    <button class="login-button" onclick="window.location.href='/login?scope=profile:basic'">
+      一部アクセスでログイン
+    </button>
+    <button class="login-button" onclick="window.location.href='/login?scope=profile:full'">
+      フルアクセスでログイン
     </button>
   </main>
+
+  <script>
+    // callbackでのエラーはクエリパラメータ経由でここに戻ってきて表示する
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error) {
+      const el = document.getElementById("error-message");
+      el.textContent = error;
+      el.style.display = "block";
+    }
+  </script>
 
 </body>
 </html>

@@ -92,4 +92,12 @@ export const profiles: Profile[] = [
     favoriteFood: "餃子",
     motto: "泰然自若",
   },
+  {
+    id: "u11",
+    name: "Bob",
+    birthday: "1995-05-15",
+    bloodType: "B",
+    favoriteFood: "Pizza",
+    motto: "Keep it simple.",
+  },
 ];

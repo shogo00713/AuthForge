@@ -169,7 +169,7 @@
       </div>
 
       <div class="decision-row">
-        <button type="submit" name="decision" value="deny" class="decision-button deny">拒否する</button>
+        <button type="submit" name="decision" value="deny" class="decision-button deny" formnovalidate>拒否する</button>
         <button type="submit" name="decision" value="allow" class="decision-button allow">許可する</button>
       </div>
     </form>
@@ -186,16 +186,22 @@
       el.style.display = "block";
     }
 
-    const SCOPE_DESCRIPTIONS = {
-      "profile:basic": "「名前」「好きな食べ物」の読み取り",
-      "profile:full": "「名前」「好きな食べ物」「誕生日」「血液型」「座右の銘」の読み取り",
+    const SCOPE_FIELDS = {
+      "profile:basic": ["名前", "好きな食べ物"],
+      "profile:full": ["名前", "好きな食べ物", "誕生日", "血液型", "座右の銘"],
     };
 
     const scopeValue = document.querySelector('input[name="scope"]').value;
     const scopeList = document.getElementById("scope-list");
+
+    // 複数scopeで同じフィールドが重複しないように Set でまとめる
+    const fields = new Set();
     scopeValue.split(" ").forEach((s) => {
+      (SCOPE_FIELDS[s] || [s]).forEach((field) => fields.add(field));
+    });
+    fields.forEach((field) => {
       const li = document.createElement("li");
-      li.textContent = SCOPE_DESCRIPTIONS[s] || s;
+      li.textContent = field;
       scopeList.appendChild(li);
     });
   </script>

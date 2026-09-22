@@ -45,4 +45,5 @@ export const users: User[] = [
     { id: "u08", username: "kagurazaka_takumi", password: "LjSCXFiYcy6u" },
     { id: "u09", username: "hoshino_aoi", password: "QHHnANgPgwL" },
     { id: "u10", username: "rokudou_kei", password: "PP7sVQdQ96vh" },
+    { id: "u11", username: "Bob", password: "Happy0123" },
 ]
