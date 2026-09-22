@@ -5,8 +5,10 @@ type AuthCodeData = {
     expires_at: number;
 };
 
+// 認可コードの一時保存は、メモリ上の Map を使用する (本来はDBなどに保存する)
 const codes = new Map<string, AuthCodeData>();
 
+// 認可コードを生成する関数
 export function generateAuthCodeData(client_id: string, redirect_uri: string, scope: string[]): AuthCodeData {
     return {
         client_id,

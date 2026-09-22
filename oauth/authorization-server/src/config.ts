@@ -2,9 +2,11 @@ import fs from "fs";
 
 // サーバーの設定
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
+
+// アクセストークンの有効期限（秒）
 export const TOKEN_EXPIRES_IN = process.env.TOKEN_EXPIRES_IN!;
 
-// 鍵のパス
+// 鍵
 export const PRIVATE_KEY = fs.readFileSync(process.env.PRIVATE_KEY_PATH!, "utf-8");
 export const PUBLIC_KEY = fs.readFileSync(process.env.PUBLIC_KEY_PATH!, "utf-8");
 
