@@ -1,3 +1,11 @@
+/**
+ * 認可エンドポイント
+ * 
+ * 認可サーバーの認可エンドポイントを実装している
+ * GET : ユーザーに同意を求める画面を表示する
+ * POST : ユーザーの同意を受け取り、認可コードを発行する
+ */
+
 import express from "express";
 import { clients } from "../config";
 import crypto from "crypto";
@@ -8,6 +16,7 @@ import { verifyCredentials } from "../services/verifyCredientials";
 const router = express.Router();
 
 // 認可エンドポイント -> GETとPOSTに分ける
+// GET : ユーザーに同意を求める画面を表示する
 router.get("/authorize", async (req, res) => {
 
     // クエリパラメータから必要な情報を取得する
@@ -23,11 +32,12 @@ router.get("/authorize", async (req, res) => {
     // リダイレクトURIが一致するか確認する (完全一致で検証)
     if (!client.redirect_uris.includes(redirect_uri as string)) {
         return res.status(400).send("不正なリダイレクトURIです");
+        // 絶対にリダイレクトしない
     }
 
     // --- これ以降のエラーはリダイレクトURIに伝える ---
 
-    // Authorization Code Grant 以外はお断り
+    // 認可コードグラント以外はお断り
     if (response_type !== "code") {
         const errorUrl = new URL(redirect_uri as string);
         errorUrl.searchParams.append("error", "unsupported_response_type");
@@ -51,13 +61,14 @@ router.get("/authorize", async (req, res) => {
     );
 });
 
+// 認可エンドポイント -> GETとPOSTに分ける
+// POST : ユーザーの同意を受け取り、認可コードを発行する
 router.post("/authorize", async(req, res) => {
 
-
-    
+    // クエリパラメータから必要な情報を取得する
     const { username, password, client_id, redirect_uri, response_type, scope } = req.body;
 
-    // 同意が取れなかったら、すぐにクライアントにリダイレクトする
+    // 同意が取れなかったら、直ちににクライアントにリダイレクトする
     if (req.body.decision === "deny") {
         const retryUrl = new URL(redirect_uri as string);
         retryUrl.searchParams.append("error", "access_denied");
@@ -66,6 +77,8 @@ router.post("/authorize", async(req, res) => {
 
     // ユーザー認証を行う (簡易的だが)
     const user = verifyCredentials(username, password);
+
+    // ユーザー認証失敗時のリダイレクト処理
     if (!user) {
         const retryUrl = new URL("/authorize", `http://localhost:4000`);
         retryUrl.searchParams.append("client_id", client_id);

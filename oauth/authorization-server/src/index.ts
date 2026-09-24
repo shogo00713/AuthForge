@@ -1,3 +1,8 @@
+/**
+ * 認可サーバーのエントリーポイント
+ * 
+ * 認可サーバーのエントリーポイントとなるファイルで、Expressアプリケーションを作成し、ルーティングを設定している
+ */
 import "dotenv/config";
 import express from "express";
 import authRouter from "./routes/authorize";

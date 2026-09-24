@@ -1,3 +1,9 @@
+/**
+ * クライアントのエントリーポイント
+ * 
+ * クライアントのエントリーポイントとなるファイルで、Expressアプリケーションを作成し、ルーティングを設定している
+ */
+
 import "dotenv/config";
 import express from "express";
 import cookieParser from "cookie-parser";

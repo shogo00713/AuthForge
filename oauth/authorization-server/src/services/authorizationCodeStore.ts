@@ -1,3 +1,16 @@
+/**
+ * 認可コード一時保存のサービス
+ *
+ * 認可コードとその関連情報を一時的に保存するためのサービス
+ * 
+ * ここでは簡易的にメモリ上の Map を使用しているが、実際の運用ではデータベースなどに保存することが望ましい
+ */
+
+import ms from "ms";
+import type { StringValue } from "ms";
+import { AUTH_CODE_EXPIRES_IN } from "../config";
+
+
 type AuthCodeData = {
     client_id: string;
     redirect_uri: string;
@@ -6,7 +19,7 @@ type AuthCodeData = {
     sub : string; // 認可コードに紐づくユーザーID
 };
 
-// 認可コードの一時保存は、メモリ上の Map を使用する (本来はDBなどに保存する)
+// 認可コードの一時保存は、メモリ上の Map を使用する
 const codes = new Map<string, AuthCodeData>();
 
 // 認可コードを生成する関数
@@ -15,7 +28,7 @@ export function generateAuthCodeData(client_id: string, redirect_uri: string, sc
         client_id,
         redirect_uri,
         scope,
-        expires_at: Date.now() + 300000, // 5分後
+        expires_at: Date.now() + ms(AUTH_CODE_EXPIRES_IN as StringValue), // 5分後
         sub,
     };
 }

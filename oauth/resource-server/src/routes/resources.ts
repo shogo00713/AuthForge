@@ -1,3 +1,10 @@
+/**
+ * リソースサーバーのリソース提供用のルーティング
+ * 
+ * このファイルは、リソースサーバーが提供するリソースにアクセスするためのルーティングを定義している
+ * アクセストークンの検証とスコープに基づくフィルタリングを行い、適切なレスポンスを返す
+ */
+
 import express from "express";
 import { verifyAccessToken } from "../services/verifyToken";
 import { filterProfileByScope } from "../services/scopeFilter";

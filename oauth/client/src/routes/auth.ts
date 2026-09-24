@@ -1,10 +1,20 @@
+/**
+ * クライアントの認可ルーティング
+ * 
+ * クライアントのOAuth2.0認可フローに関するルーティングを実装している
+ * GET /login : 認可サーバーの認可エンドポイントにリダイレクトする
+ * GET /callback : 認可サーバーから認可コードを受け取り、アクセストークンとリフレッシュトークンを取得する
+ * GET /fortune : アクセストークンを使ってリソースサーバーからユーザー情報を取得し、占い結果を表示する
+ * GET /logout : クッキーに保存されているアクセストークンを削除し、ログアウトする
+ */
+
 import express from "express"
 import { fortuneApp, AUTH_SERVER_URL } from "../config";
-import exchangeCodeForToken from "../services/oauthclient";
+import { exchangeCodeForToken, refreshAccessToken } from "../services/oauthclient";
 import fetchResources from "../services/resourceClient";
 import path from "path";
 import generateFortune from "../services/fortune";
-import fs from "fs";
+import fs from "fs";    
 
 const router = express.Router();
 
@@ -51,10 +61,13 @@ router .get("/callback", async (req, res) => {
     }
     // 認可コードと Access Token の交換を試みる
     try {
-        const token = await exchangeCodeForToken(code);
+        const { access_token, refresh_token } = await exchangeCodeForToken(code);
 
         // Access Token をクッキーに保存する
-        res.cookie("access_token", token, { httpOnly: true, maxAge: 3600 * 1000 }); // 1時間
+        res.cookie("access_token", access_token, { httpOnly: true, maxAge: 3600 * 1000 }); // 1時間
+        // new Refresh Token をクッキーに保存する
+        res.cookie("refresh_token", refresh_token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 }); // 7日間
+
         res.redirect("/");
 
     } catch (error) {
@@ -62,17 +75,30 @@ router .get("/callback", async (req, res) => {
     }
 });
 
-
+// Access_token を使って必要となる情報を埋めた fortune.html を表示する処理
 router.get("/fortune", async (req, res) => {
-    const token = req.cookies.access_token;
-    if (!token) return res.redirect("/");
+    const accessToken = req.cookies.access_token;
 
-    const data = await fetchResources(token);
-    if (!data) return res.redirect("/");
+    let data = accessToken ? await fetchResources(accessToken) : null;
+
+    // <<アクセストークンが無効な場合>>
+    if (!data) {
+
+        // Access Token が無効な場合、リフレッシュトークンを使って新しい Access Token を取得する
+        const refreshToken = req.cookies.refresh_token;
+        // <<リフレッシュトークンが無効な場合>>
+        if (!refreshToken) return res.redirect("/");
+
+        const newAccessToken = await refreshAccessToken(refreshToken);
+        if (!newAccessToken) return res.redirect("/");
+
+        res.cookie("access_token", newAccessToken, { httpOnly: true, maxAge: 3600 * 1000 });
+        data = await fetchResources(newAccessToken);
+        if (!data) return res.redirect("/");
+    }
 
     const profile = data.profile;
     const hasFullAccess = profile.birthday !== undefined;
-   
     const fortuneSection = hasFullAccess
     ?  (() => {
           const fortune = generateFortune(profile.name, profile.birthday);
@@ -95,9 +121,10 @@ router.get("/fortune", async (req, res) => {
     );
 });
 
-
+// クッキーに保存されているアクセストークンを削除し、ログアウトする処理
 router.get("/logout", (req, res) => {
     res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
     res.redirect("/");
 });
 

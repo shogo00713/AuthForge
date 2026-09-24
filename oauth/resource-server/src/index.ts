@@ -1,3 +1,9 @@
+/**
+ * リソースサーバーのエントリーポイント
+ * 
+ * このファイルは、リソースサーバーのエントリーポイントとなるファイルで、Expressアプリケーションを作成し、ルーティングを設定している
+ */
+
 import "dotenv/config";
 import express from "express";
 import resourcesRouter from "./routes/resources";

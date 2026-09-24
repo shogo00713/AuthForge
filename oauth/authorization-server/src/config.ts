@@ -1,10 +1,19 @@
+/**
+ * 認可サーバーの設定ファイル
+ */
+
 import fs from "fs";
 
 // サーバーの設定
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
 
+
+// 認可コードの有効期限（秒）
+export const AUTH_CODE_EXPIRES_IN = process.env.AUTH_CODE_EXPIRES_IN!;
 // アクセストークンの有効期限（秒）
-export const TOKEN_EXPIRES_IN = process.env.TOKEN_EXPIRES_IN!;
+export const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN!;
+// リフレッシュトークンの有効期限（秒）
+export const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN!;
 
 // 鍵
 export const PRIVATE_KEY = fs.readFileSync(process.env.PRIVATE_KEY_PATH!, "utf-8");
