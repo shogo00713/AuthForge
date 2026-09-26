@@ -14,7 +14,8 @@ const PORT = 4001;
 
 
 app.get("/", (req, res) => {
-
+    // 動作確認用
+    res.send("Resource Server is running");
 });
 
 app.listen(PORT, () => {

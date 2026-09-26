@@ -19,19 +19,31 @@ router.get("/resources", (req, res) => {
 
     // Authorizationヘッダーが存在するか確認する
     if (!authHeader) {
-        return res.status(401).send("認証情報がありません");
+        return res
+        .status(401)
+        // 認証情報がなかった (RFC 6750 3.1 参照)
+        .set("WWW-Authenticate", 'Bearer')
+        .end();
     }
 
     // Bearer認証か確認する
     if (!authHeader.startsWith("Bearer ")) {
-        return res.status(401).send("対応していない認証方式です");
+        return res
+        .status(401)
+        // Bearer認証ではなかった
+        .set("WWW-Authenticate", 'Bearer')
+        .end();
     }
 
     const token = authHeader.split(" ")[1];
 
     // トークンが存在するか確認する
     if (!token) {
-        return res.status(401).send("認証トークンがありません");
+        return res
+        .status(400)
+        // トークンがなかった
+        .set("WWW-Authenticate", 'Bearer error="invalid_request", error_description="No token provided"')
+        .json({ error: "invalid_request", error_description: "トークンがありません" });
     }
 
     try {
@@ -42,6 +54,7 @@ router.get("/resources", (req, res) => {
         // subと一致するプロフィールを1人だけ探す
         const myProfile = profiles.find((profile) => profile.id === sub);
         if (!myProfile) {
+            // プロフィールが見つからない場合は404を返す(これだけはアプリ側の責務)
             return res.status(404).send("プロフィールが見つかりません");
         }
         const filteredProfile = filterProfileByScope(myProfile, scope);
@@ -50,7 +63,10 @@ router.get("/resources", (req, res) => {
 
     } catch (error) {
         console.error(error);
-        res.status(401).send("トークンの有効期限切れか、無効なトークンです");
+        res.status(401)
+        // トークンがうまく検証できなかった
+        .set("WWW-Authenticate", 'Bearer error="invalid_token", error_description="The access token expired or is invalid"')
+        .json({ error: "invalid_token", error_description: "トークンの有効期限切れか、無効なトークンです" });
     }
 });
 

@@ -11,7 +11,7 @@ import { clients } from "../config";
 import crypto from "crypto";
 import { generateAuthCodeData, saveCodeData } from "../services/authorizationCodeStore";
 import fs from "fs";
-import { verifyCredentials } from "../services/verifyCredientials";
+import { verifyCredentials } from "../services/verifyCredentials";
 
 const router = express.Router();
 

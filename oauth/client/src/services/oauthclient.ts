@@ -24,6 +24,7 @@ export async function exchangeCodeForToken(code: string) {
             redirect_uri: fortuneApp.redirect_uris[0]
         })
     });
+    if (!response.ok) throw new Error("トークンの取得に失敗しました");
     const data = await response.json();
     return { access_token: data.access_token, refresh_token: data.refresh_token };
 }

@@ -19,7 +19,11 @@ router.post("/token", (req, res) => {
     // Basic認証でクライアント認証
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Basic ")) {
-        return res.status(401).send("認証情報がありません");
+        return res
+        .status(401)
+        // クライアント認証失敗 (RFC 6749 3.2.1 / 5.2 参照)
+        .set("WWW-Authenticate", 'Basic realm="token"')
+        .json({ error: "invalid_client", error_description: "認証情報がありません" });
     }
     const base64Credentials = authHeader.split(" ")[1];
     const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
@@ -28,7 +32,11 @@ router.post("/token", (req, res) => {
 
     // クライアントIDとクライアントシークレットの検証を行う
     if (!client || clientSecret !== client.client_secret) {
-        return res.status(401).send("不正なクライアントです");
+        // クライアント認証が失敗した場合は401を返し、WWW-Authenticateヘッダーで認証方式(Basic)を示す
+        return res
+            .status(401)
+            .set("WWW-Authenticate", 'Basic realm="token"')
+            .json({ error: "invalid_client", error_description: "不正なクライアントです" });
     }
 
     // 認可コードに基づくアクセストークンの発行
@@ -38,16 +46,19 @@ router.post("/token", (req, res) => {
         // 認可コードの検証
         const code = req.body.code;
         if (!code) {
-            return res.status(400).send("認可コードがありません");
+            // 認可コードがない
+            return res.status(400).json({ error: "invalid_request", error_description: "認可コードがありません" });
         }
 
         const data = checkCodeData(code);
         if (!data) {
-            return res.status(400).send("無効な認可コードです");
+            // 認可コードが存在しない
+            return res.status(400).json({ error: "invalid_grant", error_description: "無効な認可コードです" });
         }
 
         if(data?.client_id !== clientId || data?.redirect_uri !== req.body.redirect_uri){
-            return res.status(400).send("不正な認可コードです");
+            // クライアントが登録情報と一致しない
+            return res.status(400).json({ error: "invalid_grant", error_description: "不正な認可コードです" });
         }
 
         // JWT形式の Access Token を発行する
@@ -62,11 +73,14 @@ router.post("/token", (req, res) => {
         // 認可コードを使ったので削除する
         deleteCodeData(code);
 
-        res.json({
-            access_token: accessToken,
-            token_type: "Bearer",
-            expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN), // 1時間
-            refresh_token: refreshToken
+        return res
+            .set("Cache-Control", "no-store")
+            .set("Pragma", "no-cache")
+            .json({
+                access_token: accessToken,
+                token_type: "Bearer",
+                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN),
+                refresh_token: refreshToken
         });
     }
 
@@ -75,30 +89,33 @@ router.post("/token", (req, res) => {
 
         const refreshToken = req.body.refresh_token;
         if (!refreshToken) {
-            return res.status(400).send("リフレッシュトークンがありません");
+            return res.status(400).json({ error: "invalid_request", error_description: "リフレッシュトークンがありません" });
         }
 
         const data = checkRefreshTokenData(refreshToken);
         if (!data) {
-            return res.status(400).send("無効なリフレッシュトークンです");
+            return res.status(400).json({ error: "invalid_grant", error_description: "無効なリフレッシュトークンです" });
         }
 
         if(data?.client_id !== clientId){
-            return res.status(400).send("不正なリフレッシュトークンです");
+            return res.status(400).json({ error: "invalid_grant", error_description: "不正なリフレッシュトークンです" });
         }
 
         // JWT形式の Access Token を発行する
         const accessToken = issueAccessToken({ sub: data.sub, scope: data.scope.join(" ") });
 
-        res.json({
-            access_token: accessToken,
-            token_type: "Bearer",
-            expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN) // 1時間
+        return res
+            .set("Cache-Control", "no-store")
+            .set("Pragma", "no-cache")
+            .json({
+                access_token: accessToken,
+                token_type: "Bearer",
+                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN)
         });
     }
 
     else {
-        return res.status(400).send("不正な grant_type です");
+        return res.status(400).json({ error: "unsupported_grant_type", error_description: "サポートされていない grant_type です" });
     }
 
 });
