@@ -16,6 +16,8 @@ const PORT = 4000;
 
 
 app.get("/", (req, res) => {
+    // 動作確認用
+    res.send("Auth Server is running");
 });
 
 app.listen(PORT, () => {

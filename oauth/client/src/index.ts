@@ -6,11 +6,17 @@
 
 import "dotenv/config";
 import express from "express";
-import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth";
+import session from "express-session";
+import { SESSION_SECRET } from "./config";
 
 const app = express();
-app.use(cookieParser());
+app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, secure: false, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 },
+}));
 app.use(authRouter);
 
 const PORT = 3000;

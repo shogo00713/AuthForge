@@ -5,7 +5,7 @@
  * GET /login : 認可サーバーの認可エンドポイントにリダイレクトする
  * GET /callback : 認可サーバーから認可コードを受け取り、アクセストークンとリフレッシュトークンを取得する
  * GET /fortune : アクセストークンを使ってリソースサーバーからユーザー情報を取得し、占い結果を表示する
- * GET /logout : クッキーに保存されているアクセストークンを削除し、ログアウトする
+ * GET /logout : セッションに保存されているアクセストークンを削除し、ログアウトする
  */
 
 import express from "express"
@@ -16,11 +16,18 @@ import path from "path";
 import generateFortune from "../services/fortune";
 import fs from "fs";    
 
+declare module "express-session" {
+    interface SessionData {
+        access_token?: string;
+        refresh_token?: string;
+    }
+}
+
 const router = express.Router();
 
 // アクセストークンを持っているときにのみ fortune.html を表示するようにする
 router.get("/", (req, res) => {
-    if (!req.cookies.access_token) {
+    if (!req.session.access_token) {
         res.sendFile(path.join(__dirname + "/..", "views", "index.html"));
     } else {
         res.sendFile(path.join(__dirname + "/..", "views", "fortune.html"));
@@ -63,12 +70,15 @@ router .get("/callback", async (req, res) => {
     try {
         const { access_token, refresh_token } = await exchangeCodeForToken(code);
 
-        // Access Token をクッキーに保存する
-        res.cookie("access_token", access_token, { httpOnly: true, maxAge: 3600 * 1000 }); // 1時間
-        // new Refresh Token をクッキーに保存する
-        res.cookie("refresh_token", refresh_token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 }); // 7日間
-
+        req.session.regenerate((err) => {
+        if (err) {
+            console.error(err);
+            return res.redirect("/?error=" + encodeURIComponent("セッションの再生成に失敗しました"));
+        }
+        req.session.access_token = access_token;
+        req.session.refresh_token = refresh_token;
         res.redirect("/");
+    });
 
     } catch (error) {
         res.redirect("/?error=" + encodeURIComponent("アクセストークンの取得に失敗しました"));
@@ -77,7 +87,8 @@ router .get("/callback", async (req, res) => {
 
 // Access_token を使って必要となる情報を埋めた fortune.html を表示する処理
 router.get("/fortune", async (req, res) => {
-    const accessToken = req.cookies.access_token;
+    // Access_token を取得する
+    const accessToken = req.session.access_token;
 
     let data = accessToken ? await fetchResources(accessToken) : null;
 
@@ -85,14 +96,14 @@ router.get("/fortune", async (req, res) => {
     if (!data) {
 
         // Access Token が無効な場合、リフレッシュトークンを使って新しい Access Token を取得する
-        const refreshToken = req.cookies.refresh_token;
+        const refreshToken = req.session.refresh_token;
         // <<リフレッシュトークンが無効な場合>>
         if (!refreshToken) return res.redirect("/");
 
         const newAccessToken = await refreshAccessToken(refreshToken);
         if (!newAccessToken) return res.redirect("/");
 
-        res.cookie("access_token", newAccessToken, { httpOnly: true, maxAge: 3600 * 1000 });
+        req.session.access_token = newAccessToken;
         data = await fetchResources(newAccessToken);
         if (!data) return res.redirect("/");
     }
@@ -121,11 +132,16 @@ router.get("/fortune", async (req, res) => {
     );
 });
 
-// クッキーに保存されているアクセストークンを削除し、ログアウトする処理
+// セッションに保存されているアクセストークンを削除し、ログアウトする処理
 router.get("/logout", (req, res) => {
-    res.clearCookie("access_token");
-    res.clearCookie("refresh_token");
-    res.redirect("/");
+    req.session.destroy((err) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send("ログアウトに失敗しました");
+        }
+        res.clearCookie("connect.sid");
+        res.redirect("/");
+    });
 });
 
 export default router;

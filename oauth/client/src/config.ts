@@ -6,6 +6,9 @@
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
 export const RESOURCE_SERVER_URL = process.env.RESOURCE_SERVER_URL!;
 
+// セッションの秘密鍵
+export const SESSION_SECRET = process.env.SESSION_SECRET!;
+
 // クライアントの情報
 export const fortuneApp = {
     client_id: process.env.CLIENT_ID!,

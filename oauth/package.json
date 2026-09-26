@@ -1,0 +1,11 @@
+{
+  "name": "oauth",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm --prefix authorization-server install && npm --prefix resource-server install && npm --prefix client install",
+    "dev": "concurrently -k -n AS,RS,CL -c blue,green,magenta \"npm --prefix authorization-server run dev\" \"npm --prefix resource-server run dev\" \"npm --prefix client run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
