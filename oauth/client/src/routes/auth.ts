@@ -11,6 +11,7 @@
 import express from "express"
 import { fortuneApp, AUTH_SERVER_URL } from "../config";
 import { exchangeCodeForToken, refreshAccessToken } from "../services/oauthclient";
+import { verifyIdToken } from "../services/idTokenVerifier";
 import fetchResources from "../services/resourceClient";
 import path from "path";
 import generateFortune from "../services/fortune";
@@ -26,14 +27,26 @@ declare module "express-session" {
         code_verifier?: string;
         issuer?: string;
         nonce?: string; // new!! nonceをセッションに保存する
+        sub?: string; // new!! 検証済みIDトークンの sub (ログイン中のユーザー)
+        auth_time?: number; // new!! 検証済みIDトークンの auth_time
     }
 }
 
 const router = express.Router();
 
-// アクセストークンを持っているときにのみ fortune.html を表示するようにする
+// HTMLエスケープ
+function escapeHtml(s: string): string {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// auth_time (秒) を日本時間の日時文字列にする
+function formatAuthTime(authTime: number): string {
+    return new Date(authTime * 1000).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+}
+
+// IDトークンの検証を経てログインが成立しているときにのみ fortune.html を表示するようにする
 router.get("/", (req, res) => {
-    if (!req.session.access_token) {
+    if (!req.session.sub || !req.session.access_token) {
         res.sendFile(path.join(__dirname + "/..", "views", "index.html"));
     } else {
         res.sendFile(path.join(__dirname + "/..", "views", "fortune.html"));
@@ -117,29 +130,53 @@ router .get("/callback", async (req, res) => {
     if(!code){
         return res.redirect("/?error=" + encodeURIComponent("認可コードが取得できませんでした"));
     }
-    // 認可コードと Access Token の交換を試みる
+    // 認可コードと Access Token / IDトークン の交換を試みる
+    let tokens;
     try {
-        const { access_token, refresh_token } = await exchangeCodeForToken(code, req.session.code_verifier as string);
+        tokens = await exchangeCodeForToken(code, req.session.code_verifier as string);
+    } catch (error) {
+        console.error(error);
+        return res.redirect("/?error=" + encodeURIComponent("アクセストークンの取得に失敗しました"));
+    }
+    delete req.session.code_verifier; // code_verifierは使い終わったら破棄する
 
-        delete req.session.code_verifier; // code_verifierは使い終わったら破棄する
+    // --- new!! IDトークンを検証して、認証を成立させる ---
+    // nonce は regenerate でセッションごと消えるので、先に取り出し、使い終わったら破棄する
+    const expectedNonce = req.session.nonce;
+    delete req.session.nonce;
 
-        req.session.regenerate((err) => {
+    let idTokenPayload;
+    try {
+        if (!tokens.id_token || !expectedNonce) {
+            throw new Error("IDトークンまたは nonce がありません");
+        }
+        idTokenPayload = await verifyIdToken(tokens.id_token, expectedNonce);
+    } catch (error) {
+        console.error(error);
+        // 検証に失敗したら、トークンはセッションに保存せず、ログイン済みにもしない
+        return res.redirect("/?error=" + encodeURIComponent("IDトークンの検証に失敗しました"));
+    }
+    // ----------------------------------------------------
+
+    req.session.regenerate((err) => {
         if (err) {
             console.error(err);
             return res.redirect("/?error=" + encodeURIComponent("セッションの再生成に失敗しました"));
         }
-        req.session.access_token = access_token;
-        req.session.refresh_token = refresh_token;
+        req.session.access_token = tokens.access_token;
+        req.session.refresh_token = tokens.refresh_token;
+        // new!! 検証済みIDトークンの sub を「ログイン中のユーザー」として保存する
+        req.session.sub = idTokenPayload.sub;
+        req.session.auth_time = idTokenPayload.auth_time;
         res.redirect("/");
     });
-
-    } catch (error) {
-        res.redirect("/?error=" + encodeURIComponent("アクセストークンの取得に失敗しました"));
-    }
 });
 
 // Access_token を使って必要となる情報を埋めた fortune.html を表示する処理
 router.get("/fortune", async (req, res) => {
+    // IDトークンの検証を経ていない (ログイン済みでない) 場合は、ログイン画面に戻す
+    if (!req.session.sub) return res.redirect("/");
+
     // Access_token を取得する
     const accessToken = req.session.access_token;
 
@@ -185,6 +222,9 @@ router.get("/fortune", async (req, res) => {
         fs.readFileSync(path.join(__dirname, "..", "views", "result.html"), "utf-8")
             .replace(/<%= name %>/g, profile.name)
             .replace(/<%= favoriteFood %>/g, profile.favoriteFood)
+            // new!! IDトークン由来の情報 (ログイン中のユーザーと認証時刻)
+            .replace(/<%= sub %>/g, () => escapeHtml(req.session.sub!))
+            .replace(/<%= authTime %>/g, () => formatAuthTime(req.session.auth_time!))
             .replace(/<%= fortuneSection %>/g, fortuneSection)
     );
 });

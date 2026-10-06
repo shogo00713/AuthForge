@@ -2,7 +2,7 @@
  * クライアントのOAuth2.0認可フローに関するサービス
  * 
  * このサービスは、クライアントが認可サーバーと通信してトークンを取得するための機能を提供し、次の2つがある
- * 1. 認可コードをアクセストークンに交換する処理
+ * 1. 認可コードをアクセストークン (openid スコープなら IDトークンも) に交換する処理
  * 2. リフレッシュトークンを使用して新しいアクセストークンを取得する処理
  */
 
@@ -27,7 +27,7 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
     });
     if (!response.ok) throw new Error("トークンの取得に失敗しました");
     const data = await response.json();
-    return { access_token: data.access_token, refresh_token: data.refresh_token };
+    return { access_token: data.access_token, refresh_token: data.refresh_token, id_token: data.id_token };
 }
 
 // リフレッシュトークンを使用して新しい Access Token を取得する処理
