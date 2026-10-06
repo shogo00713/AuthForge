@@ -12,6 +12,8 @@ import express from "express"
 import { fortuneApp, AUTH_SERVER_URL } from "../config";
 import { exchangeCodeForToken, refreshAccessToken } from "../services/oauthclient";
 import { verifyIdToken } from "../services/idTokenVerifier";
+import { getDiscovery } from "../services/discoveryClient";
+import { fetchUserInfo } from "../services/userinfoClient";
 import fetchResources from "../services/resourceClient";
 import path from "path";
 import generateFortune from "../services/fortune";
@@ -29,6 +31,7 @@ declare module "express-session" {
         nonce?: string; // new!! nonceをセッションに保存する
         sub?: string; // new!! 検証済みIDトークンの sub (ログイン中のユーザー)
         auth_time?: number; // new!! 検証済みIDトークンの auth_time
+        username?: string; // new!! UserInfo の preferred_username
     }
 }
 
@@ -55,7 +58,16 @@ router.get("/", (req, res) => {
 
 
 // ログイン時に認可サーバーの認可エンドポイントにリダイレクトする処理
-router.get("/login", (req, res) => {
+router.get("/login", async (req, res) => {
+
+    // new!! 認可エンドポイントは Discovery から取得する (issuer の一致もここで確認される)
+    let authorizationEndpoint: string;
+    try {
+        authorizationEndpoint = (await getDiscovery()).authorization_endpoint;
+    } catch (error) {
+        console.error(error);
+        return res.redirect("/?error=" + encodeURIComponent("認可サーバーの情報を取得できませんでした"));
+    }
 
     // スコープにはもう必ずopenidを含めるようにする
     const scope = `openid ${req.query.scope as string}`;
@@ -77,7 +89,7 @@ router.get("/login", (req, res) => {
     req.session.nonce = nonce;
 
     // URLを構築する
-    const autorizeUrl = new URL("/authorize", AUTH_SERVER_URL);
+    const autorizeUrl = new URL(authorizationEndpoint);
     autorizeUrl.searchParams.append("client_id", fortuneApp.client_id);
     autorizeUrl.searchParams.append("redirect_uri", fortuneApp.redirect_uris[0]);
     autorizeUrl.searchParams.append("response_type", "code");
@@ -146,11 +158,18 @@ router .get("/callback", async (req, res) => {
     delete req.session.nonce;
 
     let idTokenPayload;
+    let userInfo;
     try {
         if (!tokens.id_token || !expectedNonce) {
             throw new Error("IDトークンまたは nonce がありません");
         }
         idTokenPayload = await verifyIdToken(tokens.id_token, expectedNonce);
+
+        // new!! UserInfo の sub が IDトークンの sub と一致することを確認する (OIDC Core 5.3.2)
+        userInfo = await fetchUserInfo(tokens.access_token);
+        if (userInfo.sub !== idTokenPayload.sub) {
+            throw new Error("UserInfo の sub が IDトークンの sub と一致しません");
+        }
     } catch (error) {
         console.error(error);
         // 検証に失敗したら、トークンはセッションに保存せず、ログイン済みにもしない
@@ -168,6 +187,7 @@ router .get("/callback", async (req, res) => {
         // new!! 検証済みIDトークンの sub を「ログイン中のユーザー」として保存する
         req.session.sub = idTokenPayload.sub;
         req.session.auth_time = idTokenPayload.auth_time;
+        req.session.username = userInfo.preferred_username;
         res.redirect("/");
     });
 });
@@ -225,6 +245,7 @@ router.get("/fortune", async (req, res) => {
             // new!! IDトークン由来の情報 (ログイン中のユーザーと認証時刻)
             .replace(/<%= sub %>/g, () => escapeHtml(req.session.sub!))
             .replace(/<%= authTime %>/g, () => formatAuthTime(req.session.auth_time!))
+            .replace(/<%= username %>/g, () => escapeHtml(req.session.username ?? "-"))
             .replace(/<%= fortuneSection %>/g, fortuneSection)
     );
 });

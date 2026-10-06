@@ -7,7 +7,7 @@
  */
 
 import crypto from "crypto";
-import { JWKS_URI } from "../config";
+import { getDiscovery } from "./discoveryClient";
 
 // 取り直しの最短間隔 (10秒)で、未知の kid を大量に送られても、取得が連発しないようにする
 const REFETCH_INTERVAL_MS = 10_000;
@@ -20,7 +20,9 @@ let refreshing: Promise<void> | null = null;
 async function fetchKeys(): Promise<void> {
     lastFetchedAt = Date.now();
 
-    const res = await fetch(JWKS_URI);
+    // new!! JWKS のURLは Discovery から取得する
+    const { jwks_uri } = await getDiscovery();
+    const res = await fetch(jwks_uri);
     if (!res.ok) {
         throw new Error(`JWKS を取得できませんでした: ${res.status} ${res.statusText}`);
     }

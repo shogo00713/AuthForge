@@ -6,7 +6,7 @@
  */
 
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { RESOURCE_SERVER_URL, ACCESS_TOKEN_EXPIRES_IN, ID_TOKEN_EXPIRES_IN, PRIVATE_KEY, AUTH_SERVER_URL } from "../config";
+import { RESOURCE_SERVER_URL, USERINFO_URL, ACCESS_TOKEN_EXPIRES_IN, ID_TOKEN_EXPIRES_IN, PRIVATE_KEY, AUTH_SERVER_URL } from "../config";
 import crypto from "crypto";
 import { KID } from "./jwks";
 
@@ -16,7 +16,7 @@ export function issueAccessToken(payload: { sub: string, scope: string }): strin
         algorithm: "RS256",
         expiresIn: ACCESS_TOKEN_EXPIRES_IN,
         issuer: AUTH_SERVER_URL.toString(),
-        audience: RESOURCE_SERVER_URL,  // new!! 宛先はリソースサーバー (IDトークンとの取り違え防止)
+        audience: [RESOURCE_SERVER_URL, USERINFO_URL],  // new!! 宛先はリソースサーバーと UserInfo (IDトークンとの取り違え防止)
         keyid: KID,
     });
 }

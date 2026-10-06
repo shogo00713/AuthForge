@@ -9,9 +9,6 @@ export const RESOURCE_SERVER_URL = process.env.RESOURCE_SERVER_URL!;
 // セッションの秘密鍵
 export const SESSION_SECRET = process.env.SESSION_SECRET!;
 
-// new!! JWKSのパス
-export const JWKS_URI = process.env.JWKS_URI!;
-
 // クライアントの情報
 export const fortuneApp = {
     client_id: process.env.CLIENT_ID!,

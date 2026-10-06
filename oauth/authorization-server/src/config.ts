@@ -8,6 +8,8 @@ import type { StringValue } from "ms";
 
 // サーバーの設定
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
+// UserInfoエンドポイントのURL (アクセストークンの aud にも使う)
+export const USERINFO_URL = new URL("/userinfo", AUTH_SERVER_URL).toString();
 export const RESOURCE_SERVER_URL = process.env.RESOURCE_SERVER_URL!;
 
 

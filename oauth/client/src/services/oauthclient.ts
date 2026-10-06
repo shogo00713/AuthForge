@@ -6,12 +6,15 @@
  * 2. リフレッシュトークンを使用して新しいアクセストークンを取得する処理
  */
 
-import { fortuneApp, AUTH_SERVER_URL } from "../config";
+import { fortuneApp } from "../config";
+import { getDiscovery } from "./discoveryClient";
 
 // 認可コードを Access Token に交換する処理
 export async function exchangeCodeForToken(code: string, codeVerifier: string) {
     
-    const response = await fetch(`${AUTH_SERVER_URL}/token`, {
+    // new!! トークンエンドポイントは Discovery から取得する
+    const { token_endpoint } = await getDiscovery();
+    const response = await fetch(token_endpoint, {
         method: "POST",
         // Basic認証を使用してクライアントの認証情報を送信する
         headers: {
@@ -32,7 +35,9 @@ export async function exchangeCodeForToken(code: string, codeVerifier: string) {
 
 // リフレッシュトークンを使用して新しい Access Token を取得する処理
 export async function refreshAccessToken(refreshToken: string) {
-    const response = await fetch(`${AUTH_SERVER_URL}/token`, {
+    // new!! トークンエンドポイントは Discovery から取得する
+    const { token_endpoint } = await getDiscovery();
+    const response = await fetch(token_endpoint, {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
