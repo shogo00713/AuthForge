@@ -7,7 +7,7 @@
  */
 
 import express from "express";
-import { clients } from "../config";
+import { clients, AUTH_SERVER_URL } from "../config";
 import crypto from "crypto";
 import { generateAuthCodeData, saveCodeData } from "../services/authorizationCodeStore";
 import fs from "fs";
@@ -20,7 +20,7 @@ const router = express.Router();
 router.get("/authorize", async (req, res) => {
 
     // クエリパラメータから必要な情報を取得する
-    const { client_id, redirect_uri, response_type, scope } = req.query;
+    const { client_id, redirect_uri, response_type, scope, state } = req.query;
 
     // クライアントが存在するか確認する
     const client = clients[client_id as string];
@@ -58,6 +58,7 @@ router.get("/authorize", async (req, res) => {
             .replace(/<%= redirect_uri %>/g, redirect_uri as string)
             .replace(/<%= response_type %>/g, response_type as string)
             .replace(/<%= scope %>/g, scope as string)
+            .replace(/<%= state %>/g, state as string)
     );
 });
 
@@ -66,12 +67,26 @@ router.get("/authorize", async (req, res) => {
 router.post("/authorize", async(req, res) => {
 
     // クエリパラメータから必要な情報を取得する
-    const { username, password, client_id, redirect_uri, response_type, scope } = req.body;
+    const { username, password, client_id, redirect_uri, response_type, scope, state } = req.body;
+
+    // クライアントが存在するか確認する
+    const client = clients[client_id as string];
+    if (!client) {
+        return res.status(400).send("不正なクライアントです");
+        // 絶対にリダイレクトしない
+    }
+
+    // リダイレクトURIが一致するか確認する (完全一致で検証)
+    if (!client.redirect_uris.includes(redirect_uri as string)) {
+        return res.status(400).send("不正なリダイレクトURIです");
+        // 絶対にリダイレクトしない
+    }
 
     // 同意が取れなかったら、直ちににクライアントにリダイレクトする
     if (req.body.decision === "deny") {
         const retryUrl = new URL(redirect_uri as string);
         retryUrl.searchParams.append("error", "access_denied");
+        retryUrl.searchParams.append("state", state as string);
         return res.redirect(retryUrl.toString());
     }
 
@@ -80,11 +95,12 @@ router.post("/authorize", async(req, res) => {
 
     // ユーザー認証失敗時のリダイレクト処理
     if (!user) {
-        const retryUrl = new URL("/authorize", `http://localhost:4000`);
+        const retryUrl = new URL("/authorize", AUTH_SERVER_URL);
         retryUrl.searchParams.append("client_id", client_id);
         retryUrl.searchParams.append("redirect_uri", redirect_uri);
         retryUrl.searchParams.append("response_type", response_type);
         retryUrl.searchParams.append("scope", scope);
+        retryUrl.searchParams.append("state", state);
         retryUrl.searchParams.append("error", "認証に失敗しました");
         
         return res.redirect(retryUrl.toString());
@@ -103,6 +119,7 @@ router.post("/authorize", async(req, res) => {
         // redirect_uriに認可コードを付与してリダイレクトする
         const redirectUrl = new URL(redirect_uri as string);
         redirectUrl.searchParams.append("code", code);
+        redirectUrl.searchParams.append("state", state);
         res.redirect(redirectUrl.toString());
     } catch (error) {
         console.error(error);

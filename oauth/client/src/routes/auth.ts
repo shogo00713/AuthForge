@@ -15,11 +15,14 @@ import fetchResources from "../services/resourceClient";
 import path from "path";
 import generateFortune from "../services/fortune";
 import fs from "fs";    
+import crypto from "crypto";
+import session from "express-session";
 
 declare module "express-session" {
     interface SessionData {
         access_token?: string;
         refresh_token?: string;
+        state?: string;
     }
 }
 
@@ -40,12 +43,17 @@ router.get("/login", (req, res) => {
 
     const scope = req.query.scope as string;
 
+    // new!! stateでCSRF対策をする
+    const state = crypto.randomBytes(32).toString("hex");
+    req.session.state = state;
+
     // URLを構築する
     const autorizeUrl = new URL("/authorize", AUTH_SERVER_URL);
     autorizeUrl.searchParams.append("client_id", fortuneApp.client_id);
     autorizeUrl.searchParams.append("redirect_uri", fortuneApp.redirect_uris[0]);
     autorizeUrl.searchParams.append("response_type", "code");
     autorizeUrl.searchParams.append("scope", scope);
+    autorizeUrl.searchParams.append("state", state);
 
     res.redirect(autorizeUrl.toString());
 });
@@ -61,6 +69,19 @@ router .get("/callback", async (req, res) => {
     }
 
     const code = req.query.code as string;
+
+
+    // --- new!! stateでCSRF対策をする ---
+    const state = req.query.state as string;
+
+    // stateが一致しない場合はCSRF攻撃の可能性があるのでエラーにする
+    if(state !== req.session.state){
+        return res.redirect("/?error=" + encodeURIComponent("不正なリクエストです"));
+    }
+
+    // stateは使い終わったら破棄する
+    delete req.session.state;
+    // ----------------------------------
 
     // 認可コードを取得できなかった場合
     if(!code){

