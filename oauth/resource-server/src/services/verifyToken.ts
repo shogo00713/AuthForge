@@ -6,7 +6,7 @@
  */
 
 import jwt from "jsonwebtoken";
-import { AUTH_SERVER_URL } from "../config";
+import { AUTH_SERVER_URL, RESOURCE_SERVER_URL } from "../config";
 import { getSigningKey } from "./jwksClient";
 
 export type AccessTokenPayload = {
@@ -30,6 +30,7 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
     const publicKey = await getSigningKey(kid);
     return jwt.verify(token, publicKey, {
         algorithms: ["RS256"],
+        audience: RESOURCE_SERVER_URL, // アクセストークンはリソースサーバー当てであることを明示
         issuer: AUTH_SERVER_URL,
     }) as AccessTokenPayload;
 }

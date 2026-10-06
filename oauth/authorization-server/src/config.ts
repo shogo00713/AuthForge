@@ -8,12 +8,15 @@ import type { StringValue } from "ms";
 
 // サーバーの設定
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
+export const RESOURCE_SERVER_URL = process.env.RESOURCE_SERVER_URL!;
 
 
 // 認可コードの有効期限（秒）
 export const AUTH_CODE_EXPIRES_IN = Math.floor(ms(process.env.AUTH_CODE_EXPIRES_IN as StringValue) / 1000);
 // アクセストークンの有効期限（秒）
 export const ACCESS_TOKEN_EXPIRES_IN = Math.floor(ms(process.env.ACCESS_TOKEN_EXPIRES_IN as StringValue) / 1000);
+// IDトークンの有効期限（秒）
+export const ID_TOKEN_EXPIRES_IN = Math.floor(ms(process.env.ID_TOKEN_EXPIRES_IN as StringValue) / 1000);
 // リフレッシュトークンの有効期限（秒）
 export const REFRESH_TOKEN_EXPIRES_IN = Math.floor(ms(process.env.REFRESH_TOKEN_EXPIRES_IN as StringValue) / 1000);
 

@@ -10,7 +10,7 @@ import express from "express";
 import { clients, ACCESS_TOKEN_EXPIRES_IN } from "../config";
 import { checkCodeData, deleteCodeData } from "../services/authorizationCodeStore";
 import { generateRefreshTokenData, checkRefreshTokenData, saveRefreshTokenData, deleteRefreshTokenData } from "../services/refreshTokenStore";
-import { issueAccessToken, issueRefreshToken } from "../services/tokenService";
+import { issueAccessToken, issueRefreshToken, issueIdToken } from "../services/tokenService";
 import crypto from "crypto";
 
 const router = express.Router();
@@ -85,6 +85,11 @@ router.post("/token", (req, res) => {
         // 認可コードを使ったので削除する
         deleteCodeData(code);
 
+        // new!! openid スコープのときだけ、IDトークンも発行する
+        const idToken = data.scope.includes("openid")
+            ? issueIdToken({ sub: data.sub, aud: clientId, nonce: data.nonce, auth_time: data.auth_time })
+            : undefined;
+
         return res
             .set("Cache-Control", "no-store")
             .set("Pragma", "no-cache")
@@ -92,7 +97,8 @@ router.post("/token", (req, res) => {
                 access_token: accessToken,
                 token_type: "Bearer",
                 expires_in: ACCESS_TOKEN_EXPIRES_IN,
-                refresh_token: refreshToken
+                refresh_token: refreshToken,
+                ...(idToken ? { id_token: idToken } : {}),
         });
     }
 

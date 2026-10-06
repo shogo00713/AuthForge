@@ -86,6 +86,8 @@ def login_and_get_code(redirect_uri: str = REDIRECT_URI, scope: str = "profile:b
     extra_params で state / code_challenge / code_challenge_method などを上書きできる"""
     params = dict(extra_params)
     params.setdefault("state", secrets.token_urlsafe(16))
+    if "openid" in scope.split():
+        params.setdefault("nonce", secrets.token_urlsafe(16))  # openid スコープでは nonce が必須
 
     auto_verifier = None
     if pkce and "code_challenge" not in params:

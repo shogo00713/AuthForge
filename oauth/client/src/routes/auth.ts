@@ -25,6 +25,7 @@ declare module "express-session" {
         state?: string;
         code_verifier?: string;
         issuer?: string;
+        nonce?: string; // new!! nonceをセッションに保存する
     }
 }
 
@@ -43,7 +44,8 @@ router.get("/", (req, res) => {
 // ログイン時に認可サーバーの認可エンドポイントにリダイレクトする処理
 router.get("/login", (req, res) => {
 
-    const scope = req.query.scope as string;
+    // スコープにはもう必ずopenidを含めるようにする
+    const scope = `openid ${req.query.scope as string}`;
 
     // new!! stateでCSRF対策をする
     const state = crypto.randomBytes(32).toString("hex");
@@ -57,6 +59,10 @@ router.get("/login", (req, res) => {
     req.session.code_verifier = codeVerifier;
     const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
 
+    // new!! nonceを生成してセッションに保存する
+    const nonce = crypto.randomBytes(32).toString("hex");
+    req.session.nonce = nonce;
+
     // URLを構築する
     const autorizeUrl = new URL("/authorize", AUTH_SERVER_URL);
     autorizeUrl.searchParams.append("client_id", fortuneApp.client_id);
@@ -65,7 +71,7 @@ router.get("/login", (req, res) => {
     autorizeUrl.searchParams.append("scope", scope);
     autorizeUrl.searchParams.append("state", state);
     autorizeUrl.searchParams.append("code_challenge", codeChallenge);
-
+    autorizeUrl.searchParams.append("nonce", nonce); // new!! nonceを追加する
     res.redirect(autorizeUrl.toString());
 });
 

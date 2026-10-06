@@ -15,7 +15,7 @@ def decode_part(part: str) -> dict:
     return json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
 
 
-tokens = login_and_get_tokens()
+tokens = login_and_get_tokens(scope="openid profile:basic")
 if not tokens:
     raise SystemExit("トークンを取得できませんでした")
 

@@ -164,6 +164,7 @@
       <input type="hidden" name="scope" value="<%= scope %>">
       <input type="hidden" name="state" value="<%= state %>">
       <input type="hidden" name="code_challenge" value="<%= code_challenge %>">
+      <input type="hidden" name="nonce" value="<%= nonce %>">
 
       <div class="consent">
         <p class="consent-label"><%= client_id %> が要求している権限</p>
@@ -191,6 +192,7 @@
     const SCOPE_FIELDS = {
       "profile:basic": ["名前", "好きな食べ物"],
       "profile:full": ["名前", "好きな食べ物", "誕生日", "血液型", "座右の銘"],
+      "openid" : ["あなたが誰かの確認（ログイン）"]
     };
 
     const scopeValue = document.querySelector('input[name="scope"]').value;

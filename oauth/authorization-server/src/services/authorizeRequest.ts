@@ -14,6 +14,7 @@ export type AuthorizeParams = {
     scope: string;
     state: string;
     code_challenge: string;
+    nonce: string;
 };
 
 export type AuthorizeResult =
@@ -28,6 +29,8 @@ export const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const CODE_CHALLENGE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // stateの形式保証
 const STATE_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+// nonceの形式保証
+const NONCE_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function validateAuthorizeRequest(p: AuthorizeParams): AuthorizeResult {
 
@@ -53,6 +56,17 @@ export function validateAuthorizeRequest(p: AuthorizeParams): AuthorizeResult {
     const scopes = p.scope.split(" ");
     if (!p.scope || scopes.some(s => !client.allowed_scopes.includes(s))) {
         return { ok: false, kind: "redirect", error: "invalid_scope" };
+    }
+
+    // openidスコープを要求する場合はnonceが必要
+    if (scopes.includes("openid") && !p.nonce) {
+        return { ok: false, kind: "redirect", error: "invalid_request", description: "openidスコープを要求する場合はnonceが必要です" };
+    }
+    if (scopes.includes("openid")){
+        // nonceの形式を確認する
+        if (!NONCE_PATTERN.test(p.nonce)) {
+            return { ok: false, kind: "redirect", error: "invalid_request", description: "nonceが不正です" };
+        }
     }
 
     // PKCE: code_challenge の形式を確認する

@@ -35,6 +35,7 @@ function pickParams(src: Record<string, unknown>): AuthorizeParams {
         scope          : str(src.scope),
         state          : str(src.state),
         code_challenge : str(src.code_challenge),
+        nonce          : str(src.nonce),
     };
 }
 
@@ -111,8 +112,11 @@ router.post("/authorize", async(req, res) => {
         // 認可コードを生成する
         const code = crypto.randomBytes(32).toString("hex");
 
+        // new!! 認可コードが発行された時刻を記録する (auth_time)
+        const auth_time = Math.floor(Date.now() / 1000);
+
         // 認可コードに紐づく情報を生成する (scope は検証済みの result.scopes を使う)
-        const codeData = generateAuthCodeData(params.client_id, params.redirect_uri, result.scopes, user.id, params.code_challenge);
+        const codeData = generateAuthCodeData(params.client_id, params.redirect_uri, result.scopes, user.id, params.code_challenge, params.nonce, auth_time);
 
         // 認可コード・クライアントID・リダイレクトURI・スコープ・有効期限 を一時保存する
         saveCodeData(code, codeData);
