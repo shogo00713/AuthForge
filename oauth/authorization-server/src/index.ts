@@ -7,11 +7,13 @@ import "dotenv/config";
 import express from "express";
 import authRouter from "./routes/authorize";
 import tokenRouter from "./routes/token";
+import jwksRouter from "./routes/jwks";
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(authRouter);
 app.use(tokenRouter);
+app.use(jwksRouter);
 const PORT = 4000;
 
 

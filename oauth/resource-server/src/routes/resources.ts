@@ -13,7 +13,7 @@ import { profiles } from "../data/data";
 const router = express.Router();
 
 // プロフィールデータにアクセスするためのエンドポイント
-router.get("/resources", (req, res) => {
+router.get("/resources", async (req, res) => {
 
     const authHeader = req.headers.authorization;
 
@@ -47,7 +47,7 @@ router.get("/resources", (req, res) => {
     }
 
     try {
-        const tokenPayload = verifyAccessToken(token);
+        const tokenPayload = await verifyAccessToken(token);
         const sub = tokenPayload.sub;
         const scope = tokenPayload.scope;
 
