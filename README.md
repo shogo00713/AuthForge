@@ -1,6 +1,8 @@
 # AuthForge
 認証技術を学ぶためのハンズオン開発プロジェクト
 
+シリーズ全体の解説は、Zennの記事 [AuthForge シリーズ全体像](https://zenn.dev/shogo00713/articles/authseries-overview) にまとめています。
+
 ## 第1弾: Basic認証編
 
 Basic認証の仕組みを実装・観察・攻撃・対策の一連の流れで体験するハンズオンです。
@@ -20,3 +22,8 @@ Session/Cookieを使った認証の仕組みを実装・観察・攻撃・対策
 
 JWTの発行・検証の仕組みを実装・観察・攻撃・対策の一連の流れで体験するハンズオンです。
 詳細は [jwt/README.md](jwt/README.md) を参照してください。
+
+## 第5弾: OAuth 2.0編
+
+OAuth 2.0（認可コードフロー）の仕組みを実装・観察・攻撃・対策の一連の流れで体験するハンズオンです。
+詳細は [oauth/README.md](oauth/README.md) を参照してください。

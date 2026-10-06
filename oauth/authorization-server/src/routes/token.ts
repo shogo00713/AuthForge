@@ -17,6 +17,8 @@ const router = express.Router();
 
 router.post("/token", (req, res) => {
 
+    const body = req.body ?? {};
+
     // Basic認証でクライアント認証
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Basic ")) {
@@ -27,7 +29,7 @@ router.post("/token", (req, res) => {
         .json({ error: "invalid_client", error_description: "認証情報がありません" });
     }
     const base64Credentials = authHeader.split(" ")[1];
-    const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
+    const credentials = Buffer.from(base64Credentials, "base64").toString("utf-8");
     const [clientId, clientSecret] = credentials.split(":");
     const client = clients[clientId];
 
@@ -41,11 +43,11 @@ router.post("/token", (req, res) => {
     }
 
     // 認可コードに基づくアクセストークンの発行
-    const grantType = req.body.grant_type;
+    const grantType = body.grant_type;
     if (grantType === "authorization_code") {
 
         // 認可コードの検証
-        const code = req.body.code;
+        const code = body.code;
         if (!code) {
             // 認可コードがない
             return res.status(400).json({ error: "invalid_request", error_description: "認可コードがありません" });
@@ -57,12 +59,12 @@ router.post("/token", (req, res) => {
             return res.status(400).json({ error: "invalid_grant", error_description: "無効な認可コードです" });
         }
 
-        if(data?.client_id !== clientId || data?.redirect_uri !== req.body.redirect_uri){
+        if(data?.client_id !== clientId || data?.redirect_uri !== body.redirect_uri){
             // クライアントが登録情報と一致しない
             return res.status(400).json({ error: "invalid_grant", error_description: "不正な認可コードです" });
         }
 
-        const codeVerifier = req.body.code_verifier;
+        const codeVerifier = body.code_verifier;
         if (!codeVerifier) {
             return res.status(400).json({ error: "invalid_request", error_description: "code_verifierがありません" });
         }
@@ -89,7 +91,7 @@ router.post("/token", (req, res) => {
             .json({
                 access_token: accessToken,
                 token_type: "Bearer",
-                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN),
+                expires_in: ACCESS_TOKEN_EXPIRES_IN,
                 refresh_token: refreshToken
         });
     }
@@ -97,7 +99,7 @@ router.post("/token", (req, res) => {
     // リフレッシュトークンに基づくアクセストークンの発行
     else if (grantType === "refresh_token") {
 
-        const refreshToken = req.body.refresh_token;
+        const refreshToken = body.refresh_token;
         if (!refreshToken) {
             return res.status(400).json({ error: "invalid_request", error_description: "リフレッシュトークンがありません" });
         }
@@ -126,7 +128,7 @@ router.post("/token", (req, res) => {
             .json({
                 access_token: accessToken,
                 token_type: "Bearer",
-                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN),
+                expires_in: ACCESS_TOKEN_EXPIRES_IN,
                 // new !! リフレッシュトークンローテーション
                 refresh_token: newRefreshToken 
         });

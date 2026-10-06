@@ -26,7 +26,7 @@ export function generateRefreshTokenData(client_id: string, scope: string[], sub
     return {
         client_id,
         scope,
-        expires_at: Date.now() + ms(REFRESH_TOKEN_EXPIRES_IN as StringValue), // 7日後
+        expires_at: Date.now() + REFRESH_TOKEN_EXPIRES_IN * 1000, // 7日後
         sub,
     };
 }

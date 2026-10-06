@@ -69,10 +69,29 @@ def location_query(resp: requests.Response) -> dict:
     return {k: v[0] for k, v in parse_qs(urlparse(loc).query).items()}
 
 
+# login_and_get_code が自動で付けた PKCE の code_verifier を、認可コードごとに覚えておく
+# (exchange_code で code_verifier を指定しなかったときに、自動で付けるため)
+_auto_verifiers: dict = {}
+
+
 def login_and_get_code(redirect_uri: str = REDIRECT_URI, scope: str = "profile:basic",
-                        **extra_params) -> Optional[str]:
+                        pkce: bool = True, **extra_params) -> Optional[str]:
     """正規のユーザー認証を通して認可コードを取得する
-    extra_params で code_challenge / code_challenge_method などを追加できる"""
+
+    AS は state と code_challenge を必須にしているので、テスト対象でない限りは自動で付ける
+      - state         : 指定がなければランダムな値を付ける
+      - code_challenge: 指定がなく pkce=True なら、code_verifier を生成して S256 で付ける
+                        (生成した code_verifier は exchange_code が自動で使う)
+    PKCE を一切使わないケースを試すときは pkce=False にする
+    extra_params で state / code_challenge / code_challenge_method などを上書きできる"""
+    params = dict(extra_params)
+    params.setdefault("state", secrets.token_urlsafe(16))
+
+    auto_verifier = None
+    if pkce and "code_challenge" not in params:
+        auto_verifier = generate_code_verifier()
+        params["code_challenge"] = code_challenge_s256(auto_verifier)
+
     resp = authorize_post(
         username=TEST_USERNAME,
         password=TEST_PASSWORD,
@@ -80,17 +99,22 @@ def login_and_get_code(redirect_uri: str = REDIRECT_URI, scope: str = "profile:b
         redirect_uri=redirect_uri,
         response_type="code",
         scope=scope,
-        **extra_params,
+        **params,
     )
-    q = location_query(resp)
-    return q.get("code")
+    code = location_query(resp).get("code")
+    if code and auto_verifier:
+        _auto_verifiers[code] = auto_verifier
+    return code
 
 
 def exchange_code(code: str, redirect_uri: str = REDIRECT_URI,
                     client_id: str = CLIENT_ID, client_secret: str = CLIENT_SECRET,
                     **extra_params) -> requests.Response:
     """認可コードをアクセストークンに交換する
-    extra_params で code_verifier などを追加できる"""
+    extra_params で code_verifier などを追加できる
+    code_verifier を指定しなかった場合、login_and_get_code が自動で付けた PKCE の値があればそれを使う"""
+    if "code_verifier" not in extra_params and code in _auto_verifiers:
+        extra_params["code_verifier"] = _auto_verifiers[code]
     return requests.post(
         f"{AS_URL}/token",
         data={

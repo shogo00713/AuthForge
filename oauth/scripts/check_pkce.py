@@ -32,7 +32,7 @@ def test_a_no_pkce_at_all():
     """A: code_challenge を一切付けずに認可した上で、
     code_verifier も付けずにトークン交換できてしまわないか
     (PKCE 自体が必須化されていないことの確認)"""
-    code = login_and_get_code()
+    code = login_and_get_code(pkce=False)
     if not code:
         report("A[PKCE無し]: code_verifier無しで交換", False, "前提の認可コード取得に失敗")
         return

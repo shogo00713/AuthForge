@@ -43,7 +43,7 @@ export async function refreshAccessToken(refreshToken: string) {
             refresh_token: refreshToken
         })
     });
-    if (response.status !== 200) return null;
+    if (response.status !== 200) return { newAccessToken: null, newRefreshToken: null };
     const data = await response.json();
-    return data.access_token;
+    return { newAccessToken: data.access_token, newRefreshToken: data.refresh_token };
 }

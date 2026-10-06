@@ -24,6 +24,7 @@ declare module "express-session" {
         refresh_token?: string;
         state?: string;
         code_verifier?: string;
+        issuer?: string;
     }
 }
 
@@ -48,6 +49,9 @@ router.get("/login", (req, res) => {
     const state = crypto.randomBytes(32).toString("hex");
     req.session.state = state;
 
+    // new!! Mix-up 攻撃対策のため、どの認可サーバーとのフローを開始したかを覚えておく
+    req.session.issuer = AUTH_SERVER_URL;
+
     // new!! PKCE対応のため、code_challengeを生成する
     const codeVerifier = crypto.randomBytes(32).toString("base64url"); // RFC7636の文字集合的にbase64urlが楽
     req.session.code_verifier = codeVerifier;
@@ -68,6 +72,19 @@ router.get("/login", (req, res) => {
 
 // 認可サーバーから認可コードを受け取り、Access Token に交換する処理
 router .get("/callback", async (req, res) => {
+
+    // --- new!! issでMix-up攻撃対策をする ---
+    const iss = req.query.iss;
+    const expectedIssuer = req.session.issuer;
+
+    // issは使い終わったら破棄する
+    delete req.session.issuer;
+
+    // フローを開始していない (expectedIssuer が無い)・iss が無い・iss が一致しない場合はエラーにする
+    if(!expectedIssuer || typeof iss !== "string" || iss !== expectedIssuer){
+        return res.redirect("/?error=" + encodeURIComponent("不正な認可サーバーからの応答です"));
+    }
+    // -------------------------------------
 
     const error = req.query.error as string;
 
@@ -128,12 +145,16 @@ router.get("/fortune", async (req, res) => {
         // Access Token が無効な場合、リフレッシュトークンを使って新しい Access Token を取得する
         const refreshToken = req.session.refresh_token;
         // <<リフレッシュトークンが無効な場合>>
+        // トークンの情報は全部消す -> ログイン画面に戻れる
+        delete req.session.access_token;
+        delete req.session.refresh_token;
         if (!refreshToken) return res.redirect("/");
 
-        const newAccessToken = await refreshAccessToken(refreshToken);
-        if (!newAccessToken) return res.redirect("/");
+        const { newAccessToken, newRefreshToken } = await refreshAccessToken(refreshToken);
+        if (!newAccessToken) return res.redirect("/"); // リフレッシュトークンが無効な場合はログイン画面に戻し最初からやり直す
 
         req.session.access_token = newAccessToken;
+        req.session.refresh_token = newRefreshToken; // リフレッシュトークンローテーションする
         data = await fetchResources(newAccessToken);
         if (!data) return res.redirect("/");
     }

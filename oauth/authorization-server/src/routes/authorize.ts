@@ -1,145 +1,124 @@
 /**
  * 認可エンドポイント
- * 
+ *
  * 認可サーバーの認可エンドポイントを実装している
  * GET : ユーザーに同意を求める画面を表示する
  * POST : ユーザーの同意を受け取り、認可コードを発行する
  */
 
 import express from "express";
-import { clients, AUTH_SERVER_URL } from "../config";
+import { AUTH_SERVER_URL } from "../config";
 import crypto from "crypto";
 import { generateAuthCodeData, saveCodeData } from "../services/authorizationCodeStore";
 import fs from "fs";
 import { verifyCredentials } from "../services/verifyCredentials";
+import { validateAuthorizeRequest, str, type AuthorizeParams, type AuthorizeResult } from "../services/authorizeRequest";
 
 const router = express.Router();
+
+// HTMLエスケープヘルパー関数
+function escapeHtml(s: string): string {
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// リクエスト (query / body) から検証対象のパラメータを取り出す
+function pickParams(src: Record<string, unknown>): AuthorizeParams {
+    return {
+        client_id      : str(src.client_id),
+        redirect_uri   : str(src.redirect_uri),
+        response_type  : str(src.response_type),
+        scope          : str(src.scope),
+        state          : str(src.state),
+        code_challenge : str(src.code_challenge),
+    };
+}
+
+// 検証エラーを返す共通処理 (fatal は画面に表示、redirect は redirect_uri にエラーを付けて返す)
+function respondError(res: express.Response, r: Extract<AuthorizeResult, { ok: false }>, params: AuthorizeParams) {
+    if (r.kind === "fatal") {
+        return res.status(400).send(r.message);
+        // 絶対にリダイレクトしない
+    }
+    return res.redirect(buildAuthorizationResponseUrl(params, {
+        error: r.error,
+        ...(r.description ? { error_description: r.description } : {}),
+    }));
+}
+
+// 認可レスポンスのURLを組み立てる
+function buildAuthorizationResponseUrl(params: AuthorizeParams, extra: Record<string, string>): string {
+    const url = new URL(params.redirect_uri);
+    for (const [key, value] of Object.entries(extra)) {
+        url.searchParams.append(key, value);
+    }
+    if (params.state) url.searchParams.append("state", params.state);
+    url.searchParams.append("iss", AUTH_SERVER_URL);
+    return url.toString();
+}
 
 // 認可エンドポイント -> GETとPOSTに分ける
 // GET : ユーザーに同意を求める画面を表示する
 router.get("/authorize", async (req, res) => {
 
-    // クエリパラメータから必要な情報を取得する
-    const { client_id, redirect_uri, response_type, scope, state, code_challenge } = req.query;
+    const params = pickParams(req.query);
 
-    // クライアントが存在するか確認する
-    const client = clients[client_id as string];
-    if (!client) {
-        return res.status(400).send("不正なクライアントです");
-        // 絶対にリダイレクトしない
-    }
-
-    // リダイレクトURIが一致するか確認する (完全一致で検証)
-    if (!client.redirect_uris.includes(redirect_uri as string)) {
-        return res.status(400).send("不正なリダイレクトURIです");
-        // 絶対にリダイレクトしない
-    }
-
-    // --- これ以降のエラーはリダイレクトURIに伝える ---
-
-    // 認可コードグラント以外はお断り
-    if (response_type !== "code") {
-        const errorUrl = new URL(redirect_uri as string);
-        errorUrl.searchParams.append("error", "unsupported_response_type");
-        return res.redirect(errorUrl.toString());
-    }
-
-    // スコープが正当なものか確認する
-    if (!scope || typeof scope !== "string" || scope.split(" ").some(s => !client.allowed_scopes.includes(s))) {
-        const errorUrl = new URL(redirect_uri as string);
-        errorUrl.searchParams.append("error", "invalid_scope");
-        return res.redirect(errorUrl.toString());
-    }
-
-    // new!! PKCE対応のため、code_challengeがあるか確認する
-    if(!code_challenge){
-        const errorUrl = new URL(redirect_uri as string);
-        errorUrl.searchParams.append("error", "invalid_request");
-        errorUrl.searchParams.append("error_description", "code_challengeがありません");
-        return res.redirect(errorUrl.toString());
-    }
+    // GET と POST で共通の検証を行う
+    const result = validateAuthorizeRequest(params);
+    if (!result.ok) return respondError(res, result, params);
 
     // 同意を求める画面を表示する
-    res.send(
-        fs.readFileSync(__dirname + "/../views/index.html", "utf-8")
-            .replace(/<%= client_id %>/g, client_id as string)
-            .replace(/<%= redirect_uri %>/g, redirect_uri as string)
-            .replace(/<%= response_type %>/g, response_type as string)
-            .replace(/<%= scope %>/g, scope as string)
-            .replace(/<%= state %>/g, state as string)
-            .replace(/<%= code_challenge %>/g, req.query.code_challenge as string)
-    );
+    const html = fs.readFileSync(__dirname + "/../views/index.html", "utf-8");
+    const values: Record<string, string> = { ...params };
+
+    res.send(html.replace(/<%= (\w+) %>/g, (_, key) => escapeHtml(values[key] ?? "")));
 });
 
 // 認可エンドポイント -> GETとPOSTに分ける
 // POST : ユーザーの同意を受け取り、認可コードを発行する
 router.post("/authorize", async(req, res) => {
 
-    // クエリパラメータから必要な情報を取得する
-    const { username, password, client_id, redirect_uri, response_type, scope, state, code_challenge } = req.body;
-
-    // クライアントが存在するか確認する
-    const client = clients[client_id as string];
-    if (!client) {
-        return res.status(400).send("不正なクライアントです");
-        // 絶対にリダイレクトしない
-    }
-
-    // リダイレクトURIが一致するか確認する (完全一致で検証)
-    if (!client.redirect_uris.includes(redirect_uri as string)) {
-        return res.status(400).send("不正なリダイレクトURIです");
-        // 絶対にリダイレクトしない
-    }
+    // GETと同じ検証
+    const params = pickParams(req.body ?? {});
+    const result = validateAuthorizeRequest(params);
+    if (!result.ok) return respondError(res, result, params);
 
     // 同意が取れなかったら、直ちににクライアントにリダイレクトする
     if (req.body.decision === "deny") {
-        const retryUrl = new URL(redirect_uri as string);
-        retryUrl.searchParams.append("error", "access_denied");
-        retryUrl.searchParams.append("state", state as string);
-        return res.redirect(retryUrl.toString());
+        return res.redirect(buildAuthorizationResponseUrl(params, { error: "access_denied" }));
     }
 
     // ユーザー認証を行う (簡易的だが)
-    const user = verifyCredentials(username, password);
+    const user = verifyCredentials(str(req.body.username), str(req.body.password));
 
     // ユーザー認証失敗時のリダイレクト処理
     if (!user) {
         const retryUrl = new URL("/authorize", AUTH_SERVER_URL);
-        retryUrl.searchParams.append("client_id", client_id);
-        retryUrl.searchParams.append("redirect_uri", redirect_uri);
-        retryUrl.searchParams.append("response_type", response_type);
-        retryUrl.searchParams.append("scope", scope);
-        retryUrl.searchParams.append("state", state);
+        for (const [key, value] of Object.entries(params)) {
+            retryUrl.searchParams.append(key, value);
+        }
         retryUrl.searchParams.append("error", "認証に失敗しました");
-        
+
         return res.redirect(retryUrl.toString());
     }
-
 
     try{
 
         // 認可コードを生成する
         const code = crypto.randomBytes(32).toString("hex");
 
-        // new!! code_challengeがない場合はエラーにする
-        if(!code_challenge){
-            const errorUrl = new URL(redirect_uri as string);
-            errorUrl.searchParams.append("error", "invalid_request");
-            errorUrl.searchParams.append("error_description", "code_challengeがありません");
-            return res.redirect(errorUrl.toString());
-        }
-
-        // 認可コードに紐づく情報を生成する
-        const codeData = generateAuthCodeData(client_id as string, redirect_uri as string, (scope as string).split(" "), user.id, code_challenge as string);
+        // 認可コードに紐づく情報を生成する (scope は検証済みの result.scopes を使う)
+        const codeData = generateAuthCodeData(params.client_id, params.redirect_uri, result.scopes, user.id, params.code_challenge);
 
         // 認可コード・クライアントID・リダイレクトURI・スコープ・有効期限 を一時保存する
-        await saveCodeData(code, codeData);
+        saveCodeData(code, codeData);
 
         // redirect_uriに認可コードを付与してリダイレクトする
-        const redirectUrl = new URL(redirect_uri as string);
-        redirectUrl.searchParams.append("code", code);
-        redirectUrl.searchParams.append("state", state);
-        res.redirect(redirectUrl.toString());
+        res.redirect(buildAuthorizationResponseUrl(params, { code }));
     } catch (error) {
         console.error(error);
         return res.status(500).send("サーバーエラーが発生しました");

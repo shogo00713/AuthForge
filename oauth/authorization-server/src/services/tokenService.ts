@@ -6,14 +6,15 @@
  */
 
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { ACCESS_TOKEN_EXPIRES_IN, PRIVATE_KEY} from "../config";
+import { ACCESS_TOKEN_EXPIRES_IN, PRIVATE_KEY, AUTH_SERVER_URL } from "../config";
 import crypto from "crypto";
 
 // アクセストークンを発行する関数 (署名はRS256で固定)
 export function issueAccessToken(payload: { sub: string, scope: string }): string {
     return jwt.sign(payload, PRIVATE_KEY!, {
         algorithm: "RS256",
-        expiresIn: ACCESS_TOKEN_EXPIRES_IN as SignOptions["expiresIn"],
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+        issuer: AUTH_SERVER_URL.toString(),
     });
 }
 

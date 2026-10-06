@@ -29,7 +29,7 @@ export function generateAuthCodeData(client_id: string, redirect_uri: string, sc
         client_id,
         redirect_uri,
         scope,
-        expires_at: Date.now() + ms(AUTH_CODE_EXPIRES_IN as StringValue), // 5分後
+        expires_at: Date.now() + AUTH_CODE_EXPIRES_IN * 1000, // 5分後
         sub,
         code_challenge,
     };

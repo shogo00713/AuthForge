@@ -24,6 +24,7 @@ import sys
 import requests
 
 from common import (
+    AS_URL,
     CLIENT_URL,
     client_session_is_logged_in,
     login_and_get_code,
@@ -44,7 +45,8 @@ def test_code_injection_without_state():
     )
 
     # 1. 攻撃者役: 自分のアカウントで正規にログインして、認可コードを取得する
-    #    (クライアントの /login は経由せず、AS に直接ログインするので state は持たない)
+    #    (クライアントの /login は経由せず、AS に直接ログインする。
+    #     state・code_challenge は攻撃者自身の値が付く)
     attacker_code = login_and_get_code()
     if not attacker_code:
         report("state未検証による認可コード注入(CSRF)", False, "前提の認可コード取得に失敗")
@@ -52,9 +54,10 @@ def test_code_injection_without_state():
 
     # 2. 被害者役: state を持つセッションのまま、攻撃者の code(state なし)で
     #    callback URL にアクセスする
+    #    iss は公開情報なので、攻撃者は正しい値を付けられる (iss の検証ではなく state の検証だけを確かめる)
     resp = victim_session.get(
         f"{CLIENT_URL}/callback",
-        params={"code": attacker_code},
+        params={"code": attacker_code, "iss": AS_URL},
         allow_redirects=True,
     )
 

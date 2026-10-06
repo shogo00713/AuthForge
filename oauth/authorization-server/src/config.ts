@@ -3,24 +3,26 @@
  */
 
 import fs from "fs";
+import ms from "ms";
+import type { StringValue } from "ms";
 
 // サーバーの設定
 export const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL!;
 
 
 // 認可コードの有効期限（秒）
-export const AUTH_CODE_EXPIRES_IN = process.env.AUTH_CODE_EXPIRES_IN!;
+export const AUTH_CODE_EXPIRES_IN = Math.floor(ms(process.env.AUTH_CODE_EXPIRES_IN as StringValue) / 1000);
 // アクセストークンの有効期限（秒）
-export const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN!;
+export const ACCESS_TOKEN_EXPIRES_IN = Math.floor(ms(process.env.ACCESS_TOKEN_EXPIRES_IN as StringValue) / 1000);
 // リフレッシュトークンの有効期限（秒）
-export const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN!;
+export const REFRESH_TOKEN_EXPIRES_IN = Math.floor(ms(process.env.REFRESH_TOKEN_EXPIRES_IN as StringValue) / 1000);
 
 // 鍵
 export const PRIVATE_KEY = fs.readFileSync(process.env.PRIVATE_KEY_PATH!, "utf-8");
 export const PUBLIC_KEY = fs.readFileSync(process.env.PUBLIC_KEY_PATH!, "utf-8");
 
 // 登録済みクライアントの台帳
-type RegisteredClient = {
+export type RegisteredClient = {
     client_id: string;
     client_secret: string;
     redirect_uris: string[];
