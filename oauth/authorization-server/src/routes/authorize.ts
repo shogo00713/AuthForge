@@ -20,7 +20,7 @@ const router = express.Router();
 router.get("/authorize", async (req, res) => {
 
     // クエリパラメータから必要な情報を取得する
-    const { client_id, redirect_uri, response_type, scope, state } = req.query;
+    const { client_id, redirect_uri, response_type, scope, state, code_challenge } = req.query;
 
     // クライアントが存在するか確認する
     const client = clients[client_id as string];
@@ -51,6 +51,14 @@ router.get("/authorize", async (req, res) => {
         return res.redirect(errorUrl.toString());
     }
 
+    // new!! PKCE対応のため、code_challengeがあるか確認する
+    if(!code_challenge){
+        const errorUrl = new URL(redirect_uri as string);
+        errorUrl.searchParams.append("error", "invalid_request");
+        errorUrl.searchParams.append("error_description", "code_challengeがありません");
+        return res.redirect(errorUrl.toString());
+    }
+
     // 同意を求める画面を表示する
     res.send(
         fs.readFileSync(__dirname + "/../views/index.html", "utf-8")
@@ -59,6 +67,7 @@ router.get("/authorize", async (req, res) => {
             .replace(/<%= response_type %>/g, response_type as string)
             .replace(/<%= scope %>/g, scope as string)
             .replace(/<%= state %>/g, state as string)
+            .replace(/<%= code_challenge %>/g, req.query.code_challenge as string)
     );
 });
 
@@ -67,7 +76,7 @@ router.get("/authorize", async (req, res) => {
 router.post("/authorize", async(req, res) => {
 
     // クエリパラメータから必要な情報を取得する
-    const { username, password, client_id, redirect_uri, response_type, scope, state } = req.body;
+    const { username, password, client_id, redirect_uri, response_type, scope, state, code_challenge } = req.body;
 
     // クライアントが存在するか確認する
     const client = clients[client_id as string];
@@ -111,7 +120,17 @@ router.post("/authorize", async(req, res) => {
 
         // 認可コードを生成する
         const code = crypto.randomBytes(32).toString("hex");
-        const codeData = generateAuthCodeData(client_id as string, redirect_uri as string, (scope as string).split(" "), user.id);
+
+        // new!! code_challengeがない場合はエラーにする
+        if(!code_challenge){
+            const errorUrl = new URL(redirect_uri as string);
+            errorUrl.searchParams.append("error", "invalid_request");
+            errorUrl.searchParams.append("error_description", "code_challengeがありません");
+            return res.redirect(errorUrl.toString());
+        }
+
+        // 認可コードに紐づく情報を生成する
+        const codeData = generateAuthCodeData(client_id as string, redirect_uri as string, (scope as string).split(" "), user.id, code_challenge as string);
 
         // 認可コード・クライアントID・リダイレクトURI・スコープ・有効期限 を一時保存する
         await saveCodeData(code, codeData);

@@ -17,19 +17,21 @@ type AuthCodeData = {
     scope: string[];
     expires_at: number;
     sub : string; // 認可コードに紐づくユーザーID
+    code_challenge: string;
 };
 
 // 認可コードの一時保存は、メモリ上の Map を使用する
 const codes = new Map<string, AuthCodeData>();
 
 // 認可コードを生成する関数
-export function generateAuthCodeData(client_id: string, redirect_uri: string, scope: string[], sub: string): AuthCodeData {
+export function generateAuthCodeData(client_id: string, redirect_uri: string, scope: string[], sub: string, code_challenge: string): AuthCodeData {
     return {
         client_id,
         redirect_uri,
         scope,
         expires_at: Date.now() + ms(AUTH_CODE_EXPIRES_IN as StringValue), // 5分後
         sub,
+        code_challenge,
     };
 }
 

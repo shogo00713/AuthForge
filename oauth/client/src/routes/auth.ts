@@ -23,6 +23,7 @@ declare module "express-session" {
         access_token?: string;
         refresh_token?: string;
         state?: string;
+        code_verifier?: string;
     }
 }
 
@@ -47,6 +48,11 @@ router.get("/login", (req, res) => {
     const state = crypto.randomBytes(32).toString("hex");
     req.session.state = state;
 
+    // new!! PKCE対応のため、code_challengeを生成する
+    const codeVerifier = crypto.randomBytes(32).toString("base64url"); // RFC7636の文字集合的にbase64urlが楽
+    req.session.code_verifier = codeVerifier;
+    const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+
     // URLを構築する
     const autorizeUrl = new URL("/authorize", AUTH_SERVER_URL);
     autorizeUrl.searchParams.append("client_id", fortuneApp.client_id);
@@ -54,6 +60,7 @@ router.get("/login", (req, res) => {
     autorizeUrl.searchParams.append("response_type", "code");
     autorizeUrl.searchParams.append("scope", scope);
     autorizeUrl.searchParams.append("state", state);
+    autorizeUrl.searchParams.append("code_challenge", codeChallenge);
 
     res.redirect(autorizeUrl.toString());
 });
@@ -89,7 +96,9 @@ router .get("/callback", async (req, res) => {
     }
     // 認可コードと Access Token の交換を試みる
     try {
-        const { access_token, refresh_token } = await exchangeCodeForToken(code);
+        const { access_token, refresh_token } = await exchangeCodeForToken(code, req.session.code_verifier as string);
+
+        delete req.session.code_verifier; // code_verifierは使い終わったら破棄する
 
         req.session.regenerate((err) => {
         if (err) {

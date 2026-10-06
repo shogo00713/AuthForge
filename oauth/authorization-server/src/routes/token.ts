@@ -9,8 +9,9 @@
 import express from "express";
 import { clients, ACCESS_TOKEN_EXPIRES_IN } from "../config";
 import { checkCodeData, deleteCodeData } from "../services/authorizationCodeStore";
-import { generateRefreshTokenData, checkRefreshTokenData, saveRefreshTokenData } from "../services/refreshTokenStore";
+import { generateRefreshTokenData, checkRefreshTokenData, saveRefreshTokenData, deleteRefreshTokenData } from "../services/refreshTokenStore";
 import { issueAccessToken, issueRefreshToken } from "../services/tokenService";
+import crypto from "crypto";
 
 const router = express.Router();
 
@@ -61,6 +62,15 @@ router.post("/token", (req, res) => {
             return res.status(400).json({ error: "invalid_grant", error_description: "不正な認可コードです" });
         }
 
+        const codeVerifier = req.body.code_verifier;
+        if (!codeVerifier) {
+            return res.status(400).json({ error: "invalid_request", error_description: "code_verifierがありません" });
+        }
+        const expectedChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");  // S256限定
+        if (expectedChallenge !== data.code_challenge) {
+            return res.status(400).json({ error: "invalid_grant", error_description: "code_verifierが不正です" });
+        }
+
         // JWT形式の Access Token を発行する
         const accessToken = issueAccessToken({ sub: data.sub, scope: data.scope.join(" ") });
         // New!! JWT形式の Refresh Token を発行する
@@ -104,13 +114,21 @@ router.post("/token", (req, res) => {
         // JWT形式の Access Token を発行する
         const accessToken = issueAccessToken({ sub: data.sub, scope: data.scope.join(" ") });
 
+        // new!! リフレッシュトークンローテーション
+        const newRefreshToken = issueRefreshToken();
+        const newRefreshTokenData = generateRefreshTokenData(clientId, data.scope, data.sub);
+        saveRefreshTokenData(newRefreshToken, newRefreshTokenData);
+        deleteRefreshTokenData(refreshToken);  // 古い方は消す
+
         return res
             .set("Cache-Control", "no-store")
             .set("Pragma", "no-cache")
             .json({
                 access_token: accessToken,
                 token_type: "Bearer",
-                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN)
+                expires_in: parseInt(ACCESS_TOKEN_EXPIRES_IN),
+                // new !! リフレッシュトークンローテーション
+                refresh_token: newRefreshToken 
         });
     }
 

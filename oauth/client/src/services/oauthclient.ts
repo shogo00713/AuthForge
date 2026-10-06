@@ -9,7 +9,7 @@
 import { fortuneApp, AUTH_SERVER_URL } from "../config";
 
 // 認可コードを Access Token に交換する処理
-export async function exchangeCodeForToken(code: string) {
+export async function exchangeCodeForToken(code: string, codeVerifier: string) {
     
     const response = await fetch(`${AUTH_SERVER_URL}/token`, {
         method: "POST",
@@ -21,7 +21,8 @@ export async function exchangeCodeForToken(code: string) {
         body: new URLSearchParams({
             grant_type: "authorization_code",
             code: code,
-            redirect_uri: fortuneApp.redirect_uris[0]
+            redirect_uri: fortuneApp.redirect_uris[0],
+            code_verifier: codeVerifier
         })
     });
     if (!response.ok) throw new Error("トークンの取得に失敗しました");
