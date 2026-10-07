@@ -16,11 +16,25 @@ const router = express.Router();
 
 // UserInfo のアクセストークン検証は、認可サーバー自身の公開鍵で行う
 function verifyUserInfoToken(token: string): { sub: string; scope: string } {
-    return jwt.verify(token, PUBLIC_KEY, {
+    const verified = jwt.verify(token, PUBLIC_KEY, {
         algorithms: ["RS256"],
         issuer: AUTH_SERVER_URL,
         audience: USERINFO_URL,
-    }) as { sub: string; scope: string };
+    });
+    if (typeof verified === "string") {
+        throw new Error("トークンのペイロードが不正です");
+    }
+
+    // jwt.verify は exp が「無いトークン」も通してしまうので、必須クレームの存在を自分で確認する
+    if (
+        typeof verified.exp !== "number" ||
+        typeof verified.iat !== "number" ||
+        typeof verified.sub !== "string" || verified.sub === "" ||
+        typeof verified.scope !== "string"
+    ) {
+        throw new Error("アクセストークンの必須クレームが不足しています");
+    }
+    return { sub: verified.sub, scope: verified.scope };
 }
 
 router.get("/userinfo", (req, res) => {

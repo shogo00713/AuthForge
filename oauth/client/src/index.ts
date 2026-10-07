@@ -19,7 +19,8 @@ app.use(session({
 }));
 app.use(authRouter);
 
-const PORT = 3000;
+// ポートは環境変数で変えられる (検証スクリプトが、別ポートでテスト用のクライアントを起動するため)
+const PORT = Number(process.env.PORT ?? 3000);
 
 app.listen(PORT, () => {
     console.log(`Auth Client is running on http://localhost:${PORT}`);

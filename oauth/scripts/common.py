@@ -185,3 +185,87 @@ def decode_jwt_payload(token: str) -> dict:
     padding = "=" * (-len(payload_b64) % 4)
     decoded = base64.urlsafe_b64decode(payload_b64 + padding)
     return json.loads(decoded)
+
+
+# --- JWT を手で組み立てるためのヘルパー (OIDC 編の 5-D / 6 で使う) ---
+# JWT 編の scripts と同じく標準ライブラリ中心。RS256 の署名にだけ cryptography を使う
+#   pip install cryptography
+
+import hmac
+import json
+import time
+
+RS_URL = os.environ.get("RS_URL", "http://localhost:4001")
+USERINFO_URL = f"{AS_URL}/userinfo"
+# 認可サーバーの鍵 (.gitignore 済みのローカルファイル)。「正規の鍵で署名した」トークンを作るのに使う
+AS_PRIVATE_KEY_PATH = os.environ.get("AS_PRIVATE_KEY_PATH", "../authorization-server/src/keys/private.pem")
+AS_PUBLIC_KEY_PATH = os.environ.get("AS_PUBLIC_KEY_PATH", "../authorization-server/src/keys/public.pem")
+AS_KID = "oidc-key-1"
+
+
+def b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def load_as_private_key():
+    from cryptography.hazmat.primitives import serialization
+    with open(AS_PRIVATE_KEY_PATH, "rb") as f:
+        return serialization.load_pem_private_key(f.read(), password=None)
+
+
+def generate_other_private_key():
+    """認可サーバーとは無関係な、攻撃者の RSA 鍵を作る"""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def forge_jwt(claims: dict, alg: str = "RS256", kid: Optional[str] = AS_KID, key=None,
+              secret: Optional[bytes] = None) -> str:
+    """JWT を組み立てる
+      alg="RS256": key (省略時は認可サーバーの秘密鍵) で署名
+      alg="HS256": secret を共通鍵として HMAC 署名 (アルゴリズム混同の再現用)
+      alg="none" : 署名なし
+    kid=None のときはヘッダーに kid を入れない"""
+    header = {"alg": alg, "typ": "JWT"}
+    if kid is not None:
+        header["kid"] = kid
+    signing_input = f"{b64url(json.dumps(header).encode())}.{b64url(json.dumps(claims).encode())}"
+
+    if alg == "RS256":
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+        private_key = key if key is not None else load_as_private_key()
+        signature = private_key.sign(signing_input.encode(), padding.PKCS1v15(), hashes.SHA256())
+    elif alg == "HS256":
+        signature = hmac.new(secret or b"", signing_input.encode(), "sha256").digest()
+    elif alg == "none":
+        signature = b""
+    else:
+        raise ValueError(f"unsupported alg: {alg}")
+    return f"{signing_input}.{b64url(signature)}"
+
+
+def valid_access_claims(**overrides) -> dict:
+    """認可サーバーが発行するアクセストークンと同じ形のクレーム (これ自体は正規として通るはず)
+    overrides で 1 か所だけ変えて、何が原因で弾かれるかを切り分ける。値に None を渡すとそのクレームを消す"""
+    now = int(time.time())
+    claims = {
+        "sub": "u01",
+        "scope": "openid profile:basic",
+        "iat": now,
+        "exp": now + 60,
+        "iss": AS_URL,
+        "aud": [RS_URL, USERINFO_URL],
+    }
+    claims.update(overrides)
+    return {k: v for k, v in claims.items() if v is not None}
+
+
+def precondition(name: str, ok: bool, detail: str = ""):
+    """テストの前提 (正規のものは通ること) が崩れていたら、SAFE を出さずに止める
+    前提が崩れた状態の SAFE は、何も確かめていないのと同じなので"""
+    if not ok:
+        print(f"[ABORT] 前提が崩れています: {name} -- {detail}")
+        print("        正規のトークンが通らないため、以降の SAFE は意味を持ちません。サーバーの起動状態と環境変数を確認してください")
+        raise SystemExit(2)
+    print(f"[OK] 前提: {name}" + (f" -- {detail}" if detail else ""))

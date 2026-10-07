@@ -28,9 +28,25 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
     const kid = header.kid;
 
     const publicKey = await getSigningKey(kid);
-    return jwt.verify(token, publicKey, {
+    const verified = jwt.verify(token, publicKey, {
         algorithms: ["RS256"],
         audience: RESOURCE_SERVER_URL, // アクセストークンはリソースサーバー当てであることを明示
         issuer: AUTH_SERVER_URL,
-    }) as AccessTokenPayload;
+    });
+    if (typeof verified === "string") {
+        throw new Error("トークンのペイロードが不正です");
+    }
+
+    // jwt.verify は exp などが「無いトークン」も通してしまう (期限のないトークンが永久に使えてしまう)
+    // ので、必須クレームの存在を自分で確認する
+    const payload = verified as Partial<AccessTokenPayload>;
+    if (
+        typeof payload.exp !== "number" ||
+        typeof payload.iat !== "number" ||
+        typeof payload.sub !== "string" || payload.sub === "" ||
+        typeof payload.scope !== "string"
+    ) {
+        throw new Error("アクセストークンの必須クレームが不足しています");
+    }
+    return payload as AccessTokenPayload;
 }
