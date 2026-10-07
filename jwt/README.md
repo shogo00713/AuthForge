@@ -4,6 +4,11 @@ JWTの発行・検証の仕組みを、**実装・観察・攻撃・対策**の�
 
 Node.js（TypeScript）でJWTの発行・検証サーバーを構築し、DevToolsやjwt.io、Wiresharkで観察したうえで、Pythonで署名の検証ロジックを自作します。さらに`alg: none`・アルゴリズム混同・弱い鍵のオフライン攻撃という実装依存の脆弱性を再現し、最後にJWT特有の「失効の難しさ」を確認します。
 
+## 関連記事
+
+* 理論編：[JWTとは？署名の仕組みと失効が難しい理由を理解する](https://zenn.dev/shogo00713/articles/jsonwebtoken-theory)
+* 実践編：[JWTの脆弱性を再現する：alg:none・アルゴリズム混同・弱い鍵](https://zenn.dev/shogo00713/articles/jsonwebtoken-forge)
+
 ## 使用技術
 
 * Docker Compose

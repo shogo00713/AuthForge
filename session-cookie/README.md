@@ -4,6 +4,11 @@ Session/Cookieを使った認証の仕組みを、**実装・観察・攻撃・�
 
 Basic/Digestと違い、認証の仕組みそのものをPythonの標準ライブラリだけで自作するところから始めます。ブラウザのDevToolsやWiresharkで通信を観察したうえで、セッションハイジャック・XSS・セッション固定攻撃・CSRFという4種類の攻撃を実際に成立させ、それぞれの対策を確認します。
 
+## 関連記事
+
+* 理論編：[セッションとCookieによるログインの仕組みと攻撃対策](https://zenn.dev/shogo00713/articles/sessioncookie-theory)
+* 実践編：[セッション認証を自作して、CSRF・セッションハイジャックを試す](https://zenn.dev/shogo00713/articles/sessioncookie-forge)
+
 ## 使用技術
 
 * Docker Compose

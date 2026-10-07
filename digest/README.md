@@ -4,6 +4,11 @@ Digest認証の仕組みを、**実装・観察・攻撃・対策**の流れで�
 
 Apache + Dockerを使ってDigest認証を構築し、ブラウザのDevToolsやWiresharkで通信を観察します。さらに、Pythonで認証レスポンスの計算を再現し、オフライン攻撃によってDigest認証の限界を確認します。
 
+## 関連記事
+
+* 理論編：[Digest認証とは？Basic認証との違いと使われなくなった理由](https://zenn.dev/shogo00713/articles/digestauth-theory)
+* 実践編：[Digest認証をApacheで実装し、オフライン辞書攻撃を試す](https://zenn.dev/shogo00713/articles/digestauth-forge)
+
 ## 使用技術
 
 * Docker Compose

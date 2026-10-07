@@ -4,6 +4,11 @@ Basic認証の仕組みを、**実装・観察・攻撃・対策**の流れで�
 
 Apache + Dockerを使ってBasic認証を構築し、ブラウザのDevToolsやWiresharkで通信を観察します。さらに、HTTP通信では認証情報がどのように送信されるのかを確認し、HTTPS化によってどのように保護されるのかを比較します。
 
+## 関連記事
+
+* 理論編：[Basic認証とは？仕組みと危険性をRFCから理解する](https://zenn.dev/shogo00713/articles/basicauth-theory)
+* 実践編：[Basic認証をApacheで実装し、Wiresharkで通信を覗く](https://zenn.dev/shogo00713/articles/basicauth-forge)
+
 ## 使用技術
 
 * Docker Compose
