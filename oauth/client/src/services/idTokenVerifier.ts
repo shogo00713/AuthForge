@@ -6,7 +6,7 @@
  */
 
 import jwt from "jsonwebtoken";
-import { AUTH_SERVER_URL, fortuneApp } from "../config";
+import { AUTH_SERVER_URL, fortuneApp, INSECURE } from "../config";
 import { getSigningKey } from "./jwksClient";
 
 export type IdTokenPayload = {
@@ -31,7 +31,8 @@ export async function verifyIdToken(idToken: string, expectedNonce: string): Pro
     const verified = jwt.verify(idToken, publicKey, {
         algorithms: ["RS256"],
         issuer: AUTH_SERVER_URL,
-        audience: fortuneApp.client_id,
+        // 【危険スイッチ】オンのときだけ aud を検証しない (既定は client_id を検証する)
+        audience: INSECURE.skipAudCheck ? undefined : fortuneApp.client_id,
     });
 
     if (typeof verified === "string") {
@@ -52,7 +53,8 @@ export async function verifyIdToken(idToken: string, expectedNonce: string): Pro
     }
 
     // nonce の照合 (IDトークンのリプレイ・差し替え対策)。期待値が空のときも通さない
-    if (!expectedNonce || typeof payload.nonce !== "string" || payload.nonce !== expectedNonce) {
+    // 【危険スイッチ】オンのときだけ nonce を照合しない
+    if (!INSECURE.skipNonceCheck && (!expectedNonce || typeof payload.nonce !== "string" || payload.nonce !== expectedNonce)) {
         throw new Error("IDトークンのnonceが一致しません");
     }
 

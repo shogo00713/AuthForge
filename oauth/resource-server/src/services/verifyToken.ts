@@ -6,7 +6,7 @@
  */
 
 import jwt from "jsonwebtoken";
-import { AUTH_SERVER_URL, RESOURCE_SERVER_URL } from "../config";
+import { AUTH_SERVER_URL, RESOURCE_SERVER_URL, INSECURE_SKIP_AUD_CHECK } from "../config";
 import { getSigningKey } from "./jwksClient";
 
 export type AccessTokenPayload = {
@@ -30,7 +30,8 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
     const publicKey = await getSigningKey(kid);
     const verified = jwt.verify(token, publicKey, {
         algorithms: ["RS256"],
-        audience: RESOURCE_SERVER_URL, // アクセストークンはリソースサーバー当てであることを明示
+        // アクセストークンはリソースサーバー当てであることを明示 (【危険スイッチ】オンのときだけ検証しない)
+        audience: INSECURE_SKIP_AUD_CHECK ? undefined : RESOURCE_SERVER_URL,
         issuer: AUTH_SERVER_URL,
     });
     if (typeof verified === "string") {

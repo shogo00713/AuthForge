@@ -23,49 +23,11 @@ from urllib.parse import unquote
 
 import requests
 
-from common import location_query, precondition, report, summary
-from mock_as import MockAS, TestClient
+from common import precondition, report, summary
+from mock_as import MockAS, TestClient, attempt_login, id_claims
 
-CLIENT_ID = "fortune-app"
 MAIN_PORTS = {"mock": 4100, "client": 3100}       # 通常のシナリオ用
 MISMATCH_PORTS = {"mock": 4101, "client": 3101}   # issuer 不一致の確認用
-
-_counter = 0
-
-
-def id_claims(mock: MockAS, session_nonce: str, **overrides) -> dict:
-    """細工なしの IDトークンのクレーム。overrides で 1 か所だけ変える (None を渡すとそのクレームを消す)"""
-    now = int(time.time())
-    claims = {"iss": mock.issuer, "sub": "u01", "aud": CLIENT_ID, "iat": now, "exp": now + 300,
-              "auth_time": now, "nonce": session_nonce}
-    claims.update(overrides)
-    return {k: v for k, v in claims.items() if v is not None}
-
-
-def attempt_login(mock: MockAS, client: TestClient, build_id_token, userinfo_sub="u01", userinfo_status=200):
-    """ログインを 1 回試みて、(成立したか, 詳細) を返す
-    build_id_token(nonce) -> IDトークン (None なら id_token を返さない)"""
-    global _counter
-    _counter += 1
-    code = f"code-{_counter}"
-
-    s = requests.Session()
-    login = s.get(f"{client.url}/login", params={"scope": "profile:basic"}, allow_redirects=False)
-    q = location_query(login)
-    if not (login.headers.get("Location", "").startswith(f"{mock.base_url}/authorize") and q.get("nonce")):
-        return False, f"/login が認可エンドポイントへ進まなかった: {unquote(login.headers.get('Location', ''))}"
-
-    # 認可サーバーでのログインは省略し、認可コードを持ってコールバックに戻る
-    mock.register(code, id_token=build_id_token(q["nonce"]), userinfo_sub=userinfo_sub, userinfo_status=userinfo_status)
-    cb = s.get(f"{client.url}/callback", params={"code": code, "state": q["state"], "iss": mock.base_url},
-               allow_redirects=False)
-    top = s.get(f"{client.url}/")
-    logged_in = cb.headers.get("Location") == "/" and "login-button" not in top.text
-
-    reasons = client.new_log_errors()
-    shown = reasons[0][:80] if reasons else unquote(cb.headers.get("Location", ""))[:80]
-    return logged_in, shown
-
 
 def case(mock, client, name, build_id_token, **kwargs):
     logged_in, detail = attempt_login(mock, client, build_id_token, **kwargs)

@@ -35,12 +35,32 @@ def report(name: str, vulnerable: bool, detail: str = ""):
     _results.append(vulnerable)
 
 
+# 「検証を外したら通ってしまう」ことの再現 (攻撃が成功するのが想定どおり) の結果
+_repro = []
+
+
+def reproduce(name: str, succeeded: bool, detail: str = ""):
+    """検証を外した状態で、攻撃が成功すること (REPRODUCED) を確かめる
+    成功しなかったら、そのデモは「検証の必要性」を示せていないので NOT-REPRODUCED (要調査)"""
+    status = "REPRODUCED" if succeeded else "NOT-REPRODUCED"
+    print(f"[{status}] {name}" + (f" -- {detail}" if detail else ""))
+    _repro.append(succeeded)
+
+
+def info(name: str, detail: str = ""):
+    """判定には数えない、観察用の出力"""
+    print(f"[INFO] {name}" + (f" -- {detail}" if detail else ""))
+
+
 def summary():
     print("\n--- summary ---")
     total = len(_results)
     bad = sum(_results)
     print(f"{bad}/{total} VULNERABLE")
-    return 1 if bad else 0
+    if _repro:
+        ok = sum(_repro)
+        print(f"{ok}/{len(_repro)} REPRODUCED (検証を外したときに、攻撃が成功した)")
+    return 1 if bad or (_repro and not all(_repro)) else 0
 
 
 def authorize_get(**params) -> requests.Response:

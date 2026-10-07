@@ -33,6 +33,7 @@ from common import b64url, forge_jwt
 
 MOCK_KID = "mock-key-1"
 CLIENT_DIR = os.environ.get("CLIENT_DIR", "../client")
+RS_DIR = os.environ.get("RS_DIR", "../resource-server")
 
 
 def _int_to_b64url(n: int) -> str:
@@ -156,46 +157,124 @@ class MockAS:
             self._server.server_close()
 
 
-class TestClient:
-    """偽の認可サーバーを向いて起動した、テスト用のクライアントのプロセス"""
+class TestServer:
+    """テスト用に別ポートで起動する、client または resource-server のプロセス
 
-    def __init__(self, port: int, auth_server_url: str):
+    env で渡した環境変数は、.env の値より優先される (dotenv は既存の環境変数を上書きしない)。
+    起動したプロセスだけを、プロセスグループごと止める (起動中のあなたのサーバーには触れない)"""
+
+    def __init__(self, directory: str, port: int, env: dict, name: str = "server"):
+        self.directory = directory
         self.port = port
         self.url = f"http://localhost:{port}"
-        self.auth_server_url = auth_server_url
-        self.log = tempfile.NamedTemporaryFile(prefix=f"client-{port}-", suffix=".log", delete=False)
+        self.env = {**os.environ, "PORT": str(port), **env}
+        self.log = tempfile.NamedTemporaryFile(prefix=f"{name}-{port}-", suffix=".log", delete=False)
         self._log_offset = 0
         self._proc: Optional[subprocess.Popen] = None
 
     def start(self):
-        # .env の値は dotenv が上書きしないので、ここで渡した環境変数が優先される
-        env = {**os.environ, "PORT": str(self.port), "AUTH_SERVER_URL": self.auth_server_url,
-               "REDIRECT_URI": f"{self.url}/callback"}
         self._proc = subprocess.Popen(
-            [os.path.join(CLIENT_DIR, "node_modules/.bin/tsx"), "src/index.ts"],
-            cwd=CLIENT_DIR, env=env, stdout=self.log, stderr=subprocess.STDOUT,
+            [os.path.join(self.directory, "node_modules/.bin/tsx"), "src/index.ts"],
+            cwd=self.directory, env=self.env, stdout=self.log, stderr=subprocess.STDOUT,
             start_new_session=True,  # 後で、このプロセスだけをまとめて止められるように
         )
         for _ in range(60):
             if self._proc.poll() is not None:
-                raise RuntimeError(f"テスト用クライアントが起動直後に終了しました。ログ: {self.log.name}")
+                raise RuntimeError(f"テスト用サーバーが起動直後に終了しました。ログ: {self.log.name}")
             try:
                 requests.get(self.url + "/", timeout=1)
                 return
             except requests.RequestException:
                 time.sleep(0.25)
-        raise RuntimeError(f"テスト用クライアントが起動しませんでした。ログ: {self.log.name}")
+        raise RuntimeError(f"テスト用サーバーが起動しませんでした。ログ: {self.log.name}")
 
     def stop(self):
         if self._proc and self._proc.poll() is None:
             os.killpg(self._proc.pid, signal.SIGTERM)  # このスクリプトが起動したプロセスだけを止める
             self._proc.wait(timeout=5)
 
+    def log_text(self) -> str:
+        with open(self.log.name, "r", errors="replace") as f:
+            return f.read()
+
     def new_log_errors(self) -> list:
-        """前回から増えたログのうち、Error: で終わる名前で始まる行 (弾いた理由) を返す
+        """前回から増えたログのうち、〇〇Error: で始まる行 (弾いた理由) を返す
         (Error: / JsonWebTokenError: / TokenExpiredError: など)"""
         with open(self.log.name, "r", errors="replace") as f:
             f.seek(self._log_offset)
             text = f.read()
             self._log_offset = f.tell()
         return [line.strip() for line in text.splitlines() if re.match(r"^\w*Error:", line)]
+
+
+class TestClient(TestServer):
+    """偽の認可サーバーを向いて起動した、テスト用のクライアント
+    insecure: 検証を外す危険スイッチ (例: {"INSECURE_SKIP_NONCE_CHECK": "1"})"""
+
+    def __init__(self, port: int, auth_server_url: str, insecure: Optional[dict] = None):
+        self.auth_server_url = auth_server_url
+        super().__init__(CLIENT_DIR, port, {
+            "AUTH_SERVER_URL": auth_server_url,
+            "REDIRECT_URI": f"http://localhost:{port}/callback",
+            **(insecure or {}),
+        }, name="client")
+
+
+class TestResourceServer(TestServer):
+    """テスト用のリソースサーバー。公開鍵は Discovery 経由で、auth_server_url (本物の認可サーバー) から取る
+    アクセストークンの aud は、このサーバー自身の URL (http://localhost:<port>) を期待する"""
+
+    def __init__(self, port: int, auth_server_url: str, insecure: Optional[dict] = None):
+        super().__init__(RS_DIR, port, {
+            "AUTH_SERVER_URL": auth_server_url,
+            "RESOURCE_SERVER_URL": f"http://localhost:{port}",
+            **(insecure or {}),
+        }, name="rs")
+
+
+# --- ログインの試行 (クライアントの /login → /callback) ---
+
+import time as _time
+from urllib.parse import unquote
+
+from common import location_query
+
+CLIENT_ID = "fortune-app"
+_counter = 0
+
+
+def id_claims(mock: "MockAS", session_nonce: str, **overrides) -> dict:
+    """細工なしの IDトークンのクレーム。overrides で 1 か所だけ変える (None を渡すとそのクレームを消す)"""
+    now = int(_time.time())
+    claims = {"iss": mock.issuer, "sub": "u01", "aud": CLIENT_ID, "iat": now, "exp": now + 300,
+              "auth_time": now, "nonce": session_nonce}
+    claims.update(overrides)
+    return {k: v for k, v in claims.items() if v is not None}
+
+
+def attempt_login(mock: "MockAS", client: "TestClient", build_id_token, userinfo_sub="u01", userinfo_status=200,
+                  callback_state: Optional[str] = None):
+    """ログインを 1 回試みて、(成立したか, 詳細) を返す
+    build_id_token(nonce) -> IDトークン (None なら id_token を返さない)
+    callback_state: 指定すると、/callback に、クライアントが発行した state の代わりにこの値を使う"""
+    global _counter
+    _counter += 1
+    code = f"code-{_counter}"
+
+    s = requests.Session()
+    login = s.get(f"{client.url}/login", params={"scope": "profile:basic"}, allow_redirects=False)
+    q = location_query(login)
+    if not (login.headers.get("Location", "").startswith(f"{mock.base_url}/authorize") and q.get("nonce")):
+        return False, f"/login が認可エンドポイントへ進まなかった: {unquote(login.headers.get('Location', ''))}"
+
+    # 認可サーバーでのログインは省略し、認可コードを持ってコールバックに戻る
+    mock.register(code, id_token=build_id_token(q["nonce"]), userinfo_sub=userinfo_sub, userinfo_status=userinfo_status)
+    cb = s.get(f"{client.url}/callback",
+               params={"code": code, "state": callback_state or q["state"], "iss": mock.base_url},
+               allow_redirects=False)
+    top = s.get(f"{client.url}/")
+    logged_in = cb.headers.get("Location") == "/" and "login-button" not in top.text
+
+    reasons = client.new_log_errors()
+    shown = reasons[0][:80] if reasons else unquote(cb.headers.get("Location", ""))[:80]
+    return logged_in, shown
